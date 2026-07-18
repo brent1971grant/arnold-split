@@ -177,7 +177,14 @@ function computeMetrics(rows, todayISO){
 /* METRICS-END */
 
 /* ====================== SYNC (Supabase REST) ====================== */
-let syncTimer = null, syncing = false;
+let syncTimer = null, syncing = false, lastSyncErr = null;
+function explainErr(e){
+  if(!e) return '';
+  if(/(^|\s)(401|403)/.test(e)) return 'The server rejected the key. Re-copy the anon public key (the long code starting with eyJ) from the Legacy tab in Supabase and paste it again.';
+  if(/404/.test(e)) return 'Connected to the server, but the training_log table was not found. The Project URL may point to the wrong project.';
+  if(/Failed to fetch|Load failed|NetworkError|fetch/i.test(e)) return 'Could not reach that address. The Project URL is probably mistyped — it must be exactly https://jjqfhsruxcgvyigfvboq.supabase.co with no spaces.';
+  return 'Technical detail: ' + e;
+}
 function sbHeaders(){
   return { 'apikey': cfg.key, 'Authorization': 'Bearer ' + cfg.key, 'Content-Type': 'application/json' };
 }
@@ -225,11 +232,14 @@ async function sync(){
       }
     }
     persist();
+    lastSyncErr = null;
     const t = new Date();
     badge('synced ' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0'));
     render();
   }catch(e){
-    badge(navigator.onLine ? 'sync error' : 'offline — will sync');
+    lastSyncErr = (e && e.message) ? e.message : String(e);
+    badge(navigator.onLine ? 'sync error — see Setup' : 'offline — will sync');
+    if(cur === 'settings') render();
   }finally{
     syncing = false;
   }
@@ -421,6 +431,7 @@ function renderSettings(){
       <label class="fld">Anon public key</label>
       <input type="password" id="sbKey" placeholder="eyJ..." value="${cfg ? esc(cfg.key) : ''}">
       <button class="primary" onclick="saveCfg()">Save &amp; sync</button>
+      ${lastSyncErr ? `<p style="color:var(--bad);font-size:13px;margin:10px 0 0"><b>Last sync problem:</b> ${esc(explainErr(lastSyncErr))}</p>` : ''}
       ${cfg ? '<button class="link" onclick="clearCfg()">Disconnect</button>' : ''}
     </div>
     <div class="card">
@@ -433,7 +444,9 @@ function saveCfg(){
   const url = document.getElementById('sbUrl').value.trim();
   const key = document.getElementById('sbKey').value.trim();
   if(!/^https:\/\/.+\.supabase\.co$/.test(url.replace(/\/$/,''))){ toast('URL should look like https://xxxx.supabase.co'); return; }
-  if(key.length < 30){ toast('That key looks too short'); return; }
+  if(key.startsWith('sb_')){ toast('Wrong key — use the anon public key on the Legacy tab (starts with eyJ)'); return; }
+  if(!key.startsWith('eyJ')){ toast('The key should start with eyJ — re-copy the anon public key'); return; }
+  if(key.length < 100){ toast('That key looks incomplete — copy it again'); return; }
   cfg = { url: url.replace(/\/$/,''), key };
   localStorage.setItem('as_cfg', JSON.stringify(cfg));
   toast('Saved — syncing'); sync();
