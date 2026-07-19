@@ -88,12 +88,14 @@
   <section id="view-today"></section>
   <section id="view-plan" class="hide"></section>
   <section id="view-stats" class="hide"></section>
+  <section id="view-guide" class="hide"></section>
   <section id="view-settings" class="hide"></section>
 </main>
 <nav>
   <button data-v="today" class="sel"><span class="ic">&#128170;</span>Today</button>
   <button data-v="plan"><span class="ic">&#128197;</span>Plan</button>
   <button data-v="stats"><span class="ic">&#128200;</span>Stats</button>
+  <button data-v="guide"><span class="ic">&#128203;</span>Guide</button>
   <button data-v="settings"><span class="ic">&#9881;&#65039;</span>Setup</button>
 </nav>
 <div class="toast" id="toast"></div>
@@ -247,7 +249,44 @@ async function sync(){
 window.addEventListener('online', () => sync());
 
 /* ====================== UI ====================== */
-const views = ['today','plan','stats','settings'];
+const GUIDE = [
+  { focus: 'Chest & Back', items: [
+    ['Incline Dumbbell Press', '4 x 8-12'],
+    ['Barbell Rows', '4 x 6-10'],
+    ['Flat Barbell Bench Press', '3 x 8-10'],
+    ['Lat Pulldowns or Pullups', '4 x 10-12'],
+    ['Cable Crossovers', '3 x 15'],
+    ['Hyperextensions', '3 x 12']
+  ]},
+  { focus: 'Shoulders & Arms', items: [
+    ['Seated Barbell Overhead Press', '4 x 8-10'],
+    ['Dumbbell Lateral Raises', '4 x 12-15'],
+    ['Incline Dumbbell Bicep Curls', '3 x 10-12'],
+    ['Tricep Overhead Extensions', '3 x 10-12'],
+    ['Hammer Curls', '3 x 12'],
+    ['Tricep Rope Pushdowns', '3 x 15']
+  ]},
+  { focus: 'Legs', items: [
+    ['Machine Hack Squats', '4 x 6-8'],
+    ['Kick Backs', '4 x 8-12'],
+    ['Leg Press', '3 x 10-12'],
+    ['Seated Leg Curls', '3 x 12-15'],
+    ['Standing Calf Raises', '4 x 15-20']
+  ]}
+];
+function renderGuide(){
+  const el = document.getElementById('view-guide');
+  el.innerHTML = GUIDE.map(g => `
+    <div class="card" style="border-left:6px solid ${DCOLORS[g.focus]}">
+      <h2 style="color:${DCOLORS[g.focus]}">${g.focus}</h2>
+      <table>${g.items.map(i =>
+        `<tr><td style="font-weight:600">${i[0]}</td><td class="num" style="white-space:nowrap;color:var(--muted)">${i[1]}</td></tr>`).join('')}
+      </table>
+    </div>`).join('') +
+    '<p class="muted" style="text-align:center">Sets x reps. Order as programmed.</p>';
+}
+
+const views = ['today','plan','stats','guide','settings'];
 let cur = 'today';
 let editDate = null; // null = today; otherwise a past/future date being edited
 function curDate(){ return editDate || todayStr(); }
@@ -477,6 +516,7 @@ function render(){
   if(cur === 'today') renderToday();
   else if(cur === 'plan') renderPlan();
   else if(cur === 'stats') renderStats();
+  else if(cur === 'guide') renderGuide();
   else renderSettings();
 }
 render();

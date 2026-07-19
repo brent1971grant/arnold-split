@@ -1,4 +1,4 @@
-const CACHE = 'arnold-split-v3';
+const CACHE = 'arnold-split-v4';
 const SHELL = [
   './',
   './index.html',
