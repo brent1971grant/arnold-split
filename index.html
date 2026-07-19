@@ -249,8 +249,19 @@ window.addEventListener('online', () => sync());
 /* ====================== UI ====================== */
 const views = ['today','plan','stats','settings'];
 let cur = 'today';
+let editDate = null; // null = today; otherwise a past/future date being edited
+function curDate(){ return editDate || todayStr(); }
+function openDay(d){
+  editDate = (d === todayStr()) ? null : d;
+  cur = 'today';
+  document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sel', x.dataset.v === 'today'));
+  views.forEach(v => document.getElementById('view-'+v).classList.toggle('hide', v !== 'today'));
+  render();
+  window.scrollTo(0,0);
+}
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   cur = b.dataset.v;
+  if(cur === 'today') editDate = null;
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sel', x === b));
   views.forEach(v => document.getElementById('view-'+v).classList.toggle('hide', v !== cur));
   render();
@@ -268,7 +279,7 @@ function toast(m){
 
 function renderToday(){
   const el = document.getElementById('view-today');
-  const d = todayStr();
+  const d = curDate();
   const r = byDate(d);
   if(!r){
     el.innerHTML = '<div class="card"><b>No scheduled day for ' + fmtD(d) + '.</b><p class="muted">The 12-week block runs 13 Jul – 4 Oct 2026.</p></div>';
@@ -276,6 +287,7 @@ function renderToday(){
   }
   const offplan = r.status === 'Completed' && r.trained_as !== r.focus;
   el.innerHTML = `
+    ${editDate ? `<div class="card" style="background:#fff8e6;padding:10px 16px"><b>Editing ${fmtD(editDate)}</b> — changes save and sync as normal. <button class="link" onclick="openDay(todayStr())" style="padding:0">Back to today</button></div>` : ''}
     <div class="card" style="border-left:6px solid ${DCOLORS[r.focus]}">
       <div class="muted">${fmtD(r.date)} &middot; Week ${r.week}</div>
       <div style="margin:8px 0 2px"><span class="focus-pill" style="background:${COLORS[r.focus]};color:${DCOLORS[r.focus]}">${r.focus}</span>
@@ -309,21 +321,21 @@ function quickStatsCard(){
   </div></div>`;
 }
 function mark(status){
-  const d = todayStr(); const r = byDate(d); if(!r) return;
+  const d = curDate(); const r = byDate(d); if(!r) return;
   setField(d, 'status', status);
   if(status === 'Completed' && (r.trained_as == null || r.trained_as === '')) setField(d, 'trained_as', r.focus);
   toast(status === 'Completed' ? 'Session logged &#128170;'.replace('&#128170;','\u{1F4AA}') : 'Saved');
   render();
 }
 function setTrainedAs(f){
-  setField(todayStr(), 'trained_as', f); toast('Saved'); render();
+  setField(curDate(), 'trained_as', f); toast('Saved'); render();
 }
 function saveWeight(v){
   const n = v === '' ? null : parseFloat(v);
   if(v !== '' && (isNaN(n) || n < 30 || n > 250)){ toast('Weight looks wrong'); return; }
-  setField(todayStr(), 'body_weight', n); toast('Weight saved'); render();
+  setField(curDate(), 'body_weight', n); toast('Weight saved'); render();
 }
-function saveNotes(v){ setField(todayStr(), 'notes', v || null); toast('Saved'); }
+function saveNotes(v){ setField(curDate(), 'notes', v || null); toast('Saved'); }
 
 function renderPlan(){
   const el = document.getElementById('view-plan');
@@ -336,7 +348,7 @@ function renderPlan(){
     html += wr.map(r => {
       const icon = r.status==='Completed' ? '&#9989;' : r.status==='Missed' ? '&#10060;' : '&#9898;';
       const off = r.status==='Completed' && r.trained_as !== r.focus;
-      return `<div class="day-row ${r.date===t?'today-row':''}" style="background:${COLORS[r.focus]}">
+      return `<div class="day-row ${r.date===t?'today-row':''}" style="background:${COLORS[r.focus]};cursor:pointer" onclick="openDay('${r.date}')">
         <div class="d">${fmtD(r.date)}</div>
         <div class="f" style="color:${DCOLORS[r.focus]}">${r.focus}
           ${off ? `<div class="offplan">&#9888; did: ${r.trained_as}</div>` : ''}
