@@ -446,6 +446,21 @@ function renderStats(){
       <p class="muted" style="text-align:center;margin:6px 0 0">${Math.round(m.mj.journey*100)}% of journey to 84 kg</p>` : ''}
     </div>
     <div class="card">
+      <h2>Notes journal</h2>
+      ${(() => {
+        const noted = rows.filter(r => r.notes && String(r.notes).trim()).sort((a,b) => a.date < b.date ? 1 : -1);
+        if(!noted.length) return '<p class="muted">No notes yet. Anything you type in a day\'s Notes box collects here automatically.</p>';
+        return noted.map(r => `
+          <div style="padding:8px 0;border-bottom:1px solid #eef1f4" onclick="openDay('${r.date}')">
+            <div class="muted" style="margin-bottom:2px">${fmtD(r.date)} &middot; Wk ${r.week} &middot;
+              <span style="color:${DCOLORS[r.trained_as || r.focus]};font-weight:600">${r.trained_as || r.focus}</span>
+              ${r.body_weight != null ? '&middot; ' + r.body_weight + ' kg' : ''}</div>
+            <div style="font-size:14px">${esc(r.notes)}</div>
+          </div>`).join('');
+      })()}
+      <p class="muted" style="margin:8px 0 0">Tap an entry to open that day.</p>
+    </div>
+    <div class="card">
       <h2>Weekly summary</h2>
       <table><tr><th>Wk</th><th class="num">Done</th><th class="num">Sched</th><th class="num">%</th><th class="num">Avg kg</th></tr>
       ${m.weekly.map(x => `<tr><td>${x.week}</td><td class="num">${x.done}</td><td class="num">5</td>
