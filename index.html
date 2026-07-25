@@ -135,6 +135,51 @@ function setField(date, field, value){
   scheduleSync();
 }
 
+/* ============ ROLLING SCHEDULE (never runs out) ============ */
+const MUSCLES = {
+  'Chest & Back':'Pectorals, Lats, Rhomboids, Traps',
+  'Shoulders & Arms':'Deltoids (Front/Side/Rear), Biceps, Triceps',
+  'Legs':'Quads, Hamstrings, Glutes, Calves',
+  'Rest & Recover':'Full Muscle & CNS Recovery'
+};
+const ROT = ['Chest & Back','Shoulders & Arms','Legs'];
+const DAYNAMES = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+function addDays(iso, n){
+  const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function dayNameOf(iso){ return DAYNAMES[new Date(iso + 'T12:00:00').getDay()]; }
+// Extends the programme by another 12 weeks when within 21 days of the end,
+// continuing the same pattern: Mon & Thu rest, rotation rolls across training days.
+function extendScheduleIfNeeded(){
+  if(!rows.length) return 0;
+  const sorted = [...rows].sort((a,b) => a.date < b.date ? -1 : 1);
+  const last = sorted[sorted.length - 1];
+  if(Date.parse(last.date) - Date.parse(todayStr()) > 21*86400000) return 0;
+  let rot = 0;
+  for(let i = sorted.length - 1; i >= 0; i--){
+    const idx = ROT.indexOf(sorted[i].focus);
+    if(idx >= 0){ rot = (idx + 1) % 3; break; }
+  }
+  let week = last.week, date = last.date, added = 0;
+  for(let i = 0; i < 84; i++){
+    date = addDays(date, 1);
+    const dn = dayNameOf(date);
+    if(dn === 'Monday') week++;
+    let focus;
+    if(dn === 'Monday' || dn === 'Thursday'){ focus = 'Rest & Recover'; }
+    else { focus = ROT[rot]; rot = (rot + 1) % 3; }
+    if(byDate(date)) continue;
+    rows.push({ date, day: dn, week, focus, target_muscles: MUSCLES[focus],
+      status: 'Planned', trained_as: focus, body_weight: null, notes: null,
+      updated_at: new Date().toISOString() });
+    dirty.add(date);
+    added++;
+  }
+  if(added){ rows.sort((a,b) => a.date < b.date ? -1 : 1); persist(); scheduleSync(); }
+  return added;
+}
+
 /* ====================== METRICS (pure) ====================== */
 /* METRICS-START */
 function computeMetrics(rows, todayISO){
@@ -149,14 +194,16 @@ function computeMetrics(rows, todayISO){
   const completed = rows.filter(doneTraining).length;
   const missed = rows.filter(r => r.status === 'Missed').length;
   const remaining = rows.filter(r => isTraining(r) && r.status === 'Planned').length;
-  const weekly = [];
-  for(let w=1; w<=12; w++){
+  const totalTraining = rows.filter(isTraining).length;
+  const weekNums = [...new Set(rows.map(r => r.week))].sort((a,b) => a-b);
+  const weekly = weekNums.map(w => {
     const wr = rows.filter(r => r.week === w);
+    const sched = wr.filter(isTraining).length;
     const done = wr.filter(doneTraining).length;
     const ws = wr.filter(r => r.body_weight != null).map(r => r.body_weight);
-    weekly.push({ week:w, done, sched:5, pct:done/5,
-      avgW: ws.length ? ws.reduce((a,b)=>a+b,0)/ws.length : null });
-  }
+    return { week:w, done, sched, pct: sched ? done/sched : 0,
+      avgW: ws.length ? ws.reduce((a,b)=>a+b,0)/ws.length : null };
+  });
   const weights = rows.filter(r => r.body_weight != null).sort((a,b)=>a.date<b.date?-1:1);
   const start = weights.length ? weights[0].body_weight : null;
   const current = weights.length ? weights[weights.length-1].body_weight : null;
@@ -173,8 +220,8 @@ function computeMetrics(rows, todayISO){
     down: current != null ? +(95 - current).toFixed(1) : null,
     journey: current != null ? (95 - current)/(95 - goal) : null
   };
-  return { perType, completed, missed, remaining,
-    overallPct: completed/60, weekly, weights, wm, mj };
+  return { perType, completed, missed, remaining, totalTraining,
+    overallPct: totalTraining ? completed/totalTraining : 0, weekly, weights, wm, mj };
 }
 /* METRICS-END */
 
@@ -235,6 +282,7 @@ async function sync(){
     }
     persist();
     lastSyncErr = null;
+    extendScheduleIfNeeded();
     const t = new Date();
     badge('synced ' + String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0'));
     render();
@@ -403,6 +451,21 @@ function renderPlan(){
 }
 
 let chart = null;
+let wRange = 30; // days shown on the weight chart; 0 = all
+function setWRange(n){ wRange = n; renderStats(); }
+function filterJournal(q){
+  q = (q || '').toLowerCase().trim();
+  document.querySelectorAll('#journal details').forEach(d => {
+    let any = false;
+    d.querySelectorAll('.jentry').forEach(e => {
+      const hit = !q || e.textContent.toLowerCase().includes(q);
+      e.style.display = hit ? '' : 'none';
+      if(hit) any = true;
+    });
+    d.style.display = any ? '' : 'none';
+    if(q && any) d.open = true;
+  });
+}
 function renderStats(){
   const el = document.getElementById('view-stats');
   const m = computeMetrics(rows, todayStr());
@@ -411,12 +474,13 @@ function renderStats(){
     <div class="card">
       <h2>Overall training</h2>
       <div class="grid2">
-        <div class="stat"><div class="v">${m.completed}/60</div><div class="l">Completed</div></div>
+        <div class="stat"><div class="v">${m.completed}/${m.totalTraining}</div><div class="l">Completed</div></div>
         <div class="stat"><div class="v">${Math.round(m.overallPct*100)}%</div><div class="l">Complete</div></div>
         <div class="stat"><div class="v">${m.missed}</div><div class="l">Missed</div></div>
         <div class="stat"><div class="v">${m.remaining}</div><div class="l">Remaining</div></div>
       </div>
       <div class="bar"><div style="width:${Math.min(100, m.overallPct*100)}%"></div></div>
+      <p class="muted" style="text-align:center;margin:8px 0 0">${rows.length ? fmtD(rows[0].date) + ' – ' + fmtD(rows[rows.length-1].date) + ' · ' + m.weekly.length + ' weeks' : ''}</p>
     </div>
     <div class="card">
       <h2>By workout type</h2>
@@ -427,7 +491,7 @@ function renderStats(){
       </table>
     </div>
     <div class="card">
-      <h2>Weight vs goal (84 kg by 4 Oct)</h2>
+      <h2>Weight vs goal (84 kg)</h2>
       ${w ? `<div class="grid2">
         <div class="stat"><div class="v">${w.start.toFixed(1)}</div><div class="l">Start kg</div></div>
         <div class="stat"><div class="v">${w.current.toFixed(1)}</div><div class="l">Current kg</div></div>
@@ -435,6 +499,10 @@ function renderStats(){
         <div class="stat"><div class="v">${Math.round(w.progress*100)}%</div><div class="l">To goal</div></div>
       </div>` : '<p class="muted">No weights logged yet.</p>'}
       <canvas id="wChart" height="190"></canvas>
+      <div class="chips" style="justify-content:center;margin-top:10px">
+        ${[[30,'30 days'],[90,'3 months'],[0,'All']].map(o =>
+          `<button class="chip ${wRange===o[0]?'sel':''}" onclick="setWRange(${o[0]})">${o[1]}</button>`).join('')}
+      </div>
     </div>
     <div class="card">
       <h2>Mounjaro (2.5 mg weekly since 16 May 2026)</h2>
@@ -450,38 +518,57 @@ function renderStats(){
       ${(() => {
         const noted = rows.filter(r => r.notes && String(r.notes).trim()).sort((a,b) => a.date < b.date ? 1 : -1);
         if(!noted.length) return '<p class="muted">No notes yet. Anything you type in a day\'s Notes box collects here automatically.</p>';
-        return noted.map(r => `
-          <div style="padding:8px 0;border-bottom:1px solid #eef1f4" onclick="openDay('${r.date}')">
-            <div class="muted" style="margin-bottom:2px">${fmtD(r.date)} &middot; Wk ${r.week} &middot;
-              <span style="color:${DCOLORS[r.trained_as || r.focus]};font-weight:600">${r.trained_as || r.focus}</span>
-              ${r.body_weight != null ? '&middot; ' + r.body_weight + ' kg' : ''}</div>
-            <div style="font-size:14px">${esc(r.notes)}</div>
-          </div>`).join('');
+        const byWeek = {};
+        noted.forEach(r => { (byWeek[r.week] = byWeek[r.week] || []).push(r); });
+        const weeks = Object.keys(byWeek).map(Number).sort((a,b) => b-a);
+        return `<input type="text" placeholder="Search notes (e.g. shoulder)" oninput="filterJournal(this.value)" style="margin-bottom:8px">
+          <div id="journal">` + weeks.map((w,i) => `
+          <details ${i===0?'open':''} style="border-bottom:1px solid #eef1f4">
+            <summary style="padding:9px 0;font-weight:700;font-size:13px;cursor:pointer;list-style:none">
+              Week ${w} <span class="muted" style="font-weight:400">&middot; ${byWeek[w].length} note${byWeek[w].length>1?'s':''}</span>
+            </summary>
+            ${byWeek[w].map(r => `
+              <div class="jentry" style="padding:6px 0 10px 6px" onclick="openDay('${r.date}')">
+                <div class="muted" style="margin-bottom:2px">${fmtD(r.date)} &middot;
+                  <span style="color:${DCOLORS[r.trained_as || r.focus]};font-weight:600">${r.trained_as || r.focus}</span>
+                  ${r.body_weight != null ? '&middot; ' + r.body_weight + ' kg' : ''}</div>
+                <div style="font-size:14px">${esc(r.notes)}</div>
+              </div>`).join('')}
+          </details>`).join('') + '</div>';
       })()}
-      <p class="muted" style="margin:8px 0 0">Tap an entry to open that day.</p>
+      <p class="muted" style="margin:8px 0 0">Newest week open. Tap a week to expand, an entry to edit that day.</p>
     </div>
     <div class="card">
       <h2>Weekly summary</h2>
       <table><tr><th>Wk</th><th class="num">Done</th><th class="num">Sched</th><th class="num">%</th><th class="num">Avg kg</th></tr>
-      ${m.weekly.map(x => `<tr><td>${x.week}</td><td class="num">${x.done}</td><td class="num">5</td>
+      ${m.weekly.slice(-12).map(x => `<tr><td>${x.week}</td><td class="num">${x.done}</td><td class="num">${x.sched}</td>
         <td class="num">${Math.round(x.pct*100)}%</td>
         <td class="num">${x.avgW != null ? x.avgW.toFixed(1) : '–'}</td></tr>`).join('')}
       </table>
+      ${m.weekly.length > 12 ? '<p class="muted" style="margin:8px 0 0">Showing the most recent 12 weeks of ' + m.weekly.length + '. Full history exports via Setup &gt; Export CSV.</p>' : ''}
     </div>`;
   if(m.weights.length && window.Chart){
+    let pts = m.weights;
+    if(wRange){
+      const cut = Date.parse(todayStr()) - wRange*86400000;
+      const inRange = m.weights.filter(r => Date.parse(r.date) >= cut);
+      if(inRange.length > 1) pts = inRange;
+    }
     const ctx = document.getElementById('wChart');
     if(chart) chart.destroy();
     chart = new Chart(ctx, {
       type:'line',
-      data:{ labels: m.weights.map(r => fmtD(r.date)),
+      data:{ labels: pts.map(r => fmtD(r.date)),
         datasets:[
-          { label:'Weight', data: m.weights.map(r => r.body_weight), borderColor:'#2E86C1',
-            backgroundColor:'rgba(46,134,193,.12)', fill:true, tension:.3, pointRadius:3 },
-          { label:'Goal 84', data: m.weights.map(()=>GOAL_KG), borderColor:'#1e8449',
+          { label:'Weight', data: pts.map(r => r.body_weight), borderColor:'#2E86C1',
+            backgroundColor:'rgba(46,134,193,.12)', fill:true, tension:.3,
+            pointRadius: pts.length > 45 ? 0 : 3 },
+          { label:'Goal 84', data: pts.map(()=>GOAL_KG), borderColor:'#1e8449',
             borderDash:[6,5], pointRadius:0, fill:false }
         ]},
       options:{ plugins:{legend:{display:false}},
-        scales:{ y:{ suggestedMin: GOAL_KG-2 } }, maintainAspectRatio:true }
+        scales:{ x:{ ticks:{ maxTicksLimit:6, autoSkip:true, maxRotation:0 } },
+                 y:{ suggestedMin: GOAL_KG-2 } }, maintainAspectRatio:true }
     });
   }
 }
@@ -534,6 +621,7 @@ function render(){
   else if(cur === 'guide') renderGuide();
   else renderSettings();
 }
+extendScheduleIfNeeded();
 render();
 if(cfg) sync();
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
