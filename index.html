@@ -343,7 +343,7 @@ function openDay(d){
   cur = 'today';
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sel', x.dataset.v === 'today'));
   views.forEach(v => document.getElementById('view-'+v).classList.toggle('hide', v !== 'today'));
-  render();
+  render(true);
   window.scrollTo(0,0);
 }
 document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
@@ -351,7 +351,7 @@ document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
   if(cur === 'today') editDate = null;
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sel', x === b));
   views.forEach(v => document.getElementById('view-'+v).classList.toggle('hide', v !== cur));
-  render();
+  render(true);
 });
 function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function fmtD(d){
@@ -390,7 +390,8 @@ function renderToday(){
         `<button class="chip ${r.trained_as===f?'sel':''}" onclick="setTrainedAs('${f.replace(/'/g,"\\'")}')">${f}</button>`).join('')}
       </div>
       <label class="fld">Body weight (kg)</label>
-      <input type="number" inputmode="decimal" step="0.1" id="bwInput" value="${r.body_weight ?? ''}" placeholder="e.g. 88.0"
+      <input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" id="bwInput"
+        value="${r.body_weight ?? ''}" placeholder="e.g. 87.2"
         onchange="saveWeight(this.value)">
       <label class="fld">Notes</label>
       <textarea id="notesInput" onchange="saveNotes(this.value)" placeholder="optional">${esc(r.notes)}</textarea>
@@ -400,7 +401,7 @@ function renderToday(){
 function quickStatsCard(){
   const m = computeMetrics(rows, todayStr());
   const w = m.wm;
-  return `<div class="card"><div class="grid2">
+  return `<div class="card" id="quickStats"><div class="grid2">
     <div class="stat"><div class="v">${Math.round(m.overallPct*100)}%</div><div class="l">Training complete</div></div>
     <div class="stat"><div class="v">${w ? w.current.toFixed(1) : '–'}</div><div class="l">Current kg</div></div>
     <div class="stat"><div class="v">${w ? (w.toGo>0?w.toGo.toFixed(1):'0') : '–'}</div><div class="l">Kg to goal</div></div>
@@ -412,15 +413,26 @@ function mark(status){
   setField(d, 'status', status);
   if(status === 'Completed' && (r.trained_as == null || r.trained_as === '')) setField(d, 'trained_as', r.focus);
   toast(status === 'Completed' ? 'Session logged &#128170;'.replace('&#128170;','\u{1F4AA}') : 'Saved');
-  render();
+  render(true);
 }
 function setTrainedAs(f){
-  setField(curDate(), 'trained_as', f); toast('Saved'); render();
+  setField(curDate(), 'trained_as', f); toast('Saved'); render(true);
 }
 function saveWeight(v){
-  const n = v === '' ? null : parseFloat(v);
-  if(v !== '' && (isNaN(n) || n < 30 || n > 250)){ toast('Weight looks wrong'); return; }
-  setField(curDate(), 'body_weight', n); toast('Weight saved'); render();
+  const raw = String(v == null ? '' : v).trim();
+  if(raw === ''){ setField(curDate(), 'body_weight', null); toast('Weight cleared'); refreshQuickStats(); return; }
+  const n = parseFloat(raw.replace(/,/g, '.').replace(/[^\d.]/g, ''));
+  if(isNaN(n) || n < 30 || n > 250){ toast('Enter a weight like 87.2'); return; }
+  const kg = Math.round(n * 10) / 10;
+  setField(curDate(), 'body_weight', kg);
+  const el = document.getElementById('bwInput');
+  if(el && document.activeElement !== el) el.value = kg;
+  toast('Saved ' + kg + ' kg');
+  refreshQuickStats();
+}
+function refreshQuickStats(){
+  const el = document.getElementById('quickStats');
+  if(el) el.outerHTML = quickStatsCard();
 }
 function saveNotes(v){ setField(curDate(), 'notes', v || null); toast('Saved'); }
 
@@ -614,7 +626,10 @@ function exportCSV(){
   a.download = 'training_log.csv'; a.click();
 }
 
-function render(){
+function render(force){
+  // Never rebuild the page while a field is being typed into — that would wipe the entry.
+  const ae = document.activeElement;
+  if(!force && ae && (ae.id === 'bwInput' || ae.id === 'notesInput')) return;
   if(cur === 'today') renderToday();
   else if(cur === 'plan') renderPlan();
   else if(cur === 'stats') renderStats();
