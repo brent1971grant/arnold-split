@@ -108,6 +108,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
+const APP_VERSION = 8;
 const GOAL_KG = 84, GOAL_DATE = '2026-10-04';
 const MJ_START = '2026-05-16', MJ_START_KG = 95, MJ_DOSE = '2.5 mg';
 const TOTAL_TRAINING = 60, WEEK_SCHED = 5;
@@ -602,7 +603,7 @@ function renderSettings(){
     <div class="card">
       <h2>Data</h2>
       <button class="primary" style="background:#39566f" onclick="exportCSV()">Export CSV (for Excel)</button>
-      <p class="muted" style="margin-bottom:0">${rows.length} days &middot; ${dirty.size} unsynced change${dirty.size===1?'':'s'}</p>
+      <p class="muted" style="margin-bottom:0">${rows.length} days &middot; ${dirty.size} unsynced change${dirty.size===1?'':'s'} &middot; app version ${APP_VERSION}</p>
     </div>`;
 }
 function saveCfg(){
@@ -639,7 +640,14 @@ function render(force){
 extendScheduleIfNeeded();
 render();
 if(cfg) sync();
-if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+// Register with updateViaCache:'none' so the worker script is never served from
+// the HTTP cache — updates reach the phone on the next open, not a day later.
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    reg.update();
+    document.addEventListener('visibilitychange', () => { if(!document.hidden) reg.update(); });
+  }).catch(()=>{});
+}
 </script>
 </body>
 </html>
