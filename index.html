@@ -108,7 +108,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 8;
+const APP_VERSION = 9;
 const GOAL_KG = 84, GOAL_DATE = '2026-10-04';
 const MJ_START = '2026-05-16', MJ_START_KG = 95, MJ_DOSE = '2.5 mg';
 const TOTAL_TRAINING = 60, WEEK_SCHED = 5;
@@ -150,20 +150,25 @@ function addDays(iso, n){
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 function dayNameOf(iso){ return DAYNAMES[new Date(iso + 'T12:00:00').getDay()]; }
-// Extends the programme by another 12 weeks when within 21 days of the end,
-// continuing the same pattern: Mon & Thu rest, rotation rolls across training days.
-function extendScheduleIfNeeded(){
+// Keeps the programme permanently stocked: whenever fewer than 21 days remain, it
+// tops the schedule up to 12 weeks ahead of today, continuing the same pattern
+// (Mon & Thu rest, rotation rolling across training days). It fills to a date rather
+// than adding a fixed block, so it also catches up if the app has not been opened
+// for months instead of falling short.
+function extendScheduleIfNeeded(force){
   if(!rows.length) return 0;
   const sorted = [...rows].sort((a,b) => a.date < b.date ? -1 : 1);
   const last = sorted[sorted.length - 1];
-  if(Date.parse(last.date) - Date.parse(todayStr()) > 21*86400000) return 0;
+  const topUpWhenBelow = addDays(todayStr(), 21);
+  const fillUntil = addDays(todayStr(), 84);
+  if(!force && last.date >= topUpWhenBelow) return 0;
   let rot = 0;
   for(let i = sorted.length - 1; i >= 0; i--){
     const idx = ROT.indexOf(sorted[i].focus);
     if(idx >= 0){ rot = (idx + 1) % 3; break; }
   }
-  let week = last.week, date = last.date, added = 0;
-  for(let i = 0; i < 84; i++){
+  let week = last.week, date = last.date, added = 0, guard = 0;
+  while(date < fillUntil && guard++ < 1500){
     date = addDays(date, 1);
     const dn = dayNameOf(date);
     if(dn === 'Monday') week++;
@@ -370,7 +375,9 @@ function renderToday(){
   const d = curDate();
   const r = byDate(d);
   if(!r){
-    el.innerHTML = '<div class="card"><b>No scheduled day for ' + fmtD(d) + '.</b><p class="muted">The 12-week block runs 13 Jul – 4 Oct 2026.</p></div>';
+    el.innerHTML = '<div class="card"><b>No scheduled day for ' + fmtD(d) + '.</b>'
+      + '<p class="muted">The programme should roll forward on its own. Tap below to build the next 12 weeks now - your history is untouched.</p>'
+      + '<button class="primary" onclick="extendNow()">Build the next 12 weeks</button></div>';
     return;
   }
   const offplan = r.status === 'Completed' && r.trained_as !== r.focus;
@@ -436,12 +443,20 @@ function refreshQuickStats(){
   if(el) el.outerHTML = quickStatsCard();
 }
 function saveNotes(v){ setField(curDate(), 'notes', v || null); toast('Saved'); }
+// Manual safety valve - also used by the empty-state button.
+function extendNow(){
+  const n = extendScheduleIfNeeded(true);
+  toast(n ? 'Added ' + n + ' days' : 'Schedule already up to date');
+  render(true);
+}
 
 function renderPlan(){
   const el = document.getElementById('view-plan');
   const t = todayStr();
   let html = '';
-  for(let w=1; w<=12; w++){
+  // Every week that exists - not a fixed 12 - so the rolling programme keeps showing.
+  const weekNums = [...new Set(rows.map(r => r.week))].sort((a,b) => a-b);
+  for(const w of weekNums){
     const wr = rows.filter(r => r.week === w);
     if(!wr.length) continue;
     html += `<div class="week-h">Week ${w}</div>`;
@@ -603,6 +618,7 @@ function renderSettings(){
     <div class="card">
       <h2>Data</h2>
       <button class="primary" style="background:#39566f" onclick="exportCSV()">Export CSV (for Excel)</button>
+      <button class="primary" style="background:#39566f" onclick="extendNow()">Extend programme by 12 weeks</button>
       <p class="muted" style="margin-bottom:0">${rows.length} days &middot; ${dirty.size} unsynced change${dirty.size===1?'':'s'} &middot; app version ${APP_VERSION}</p>
     </div>`;
 }
@@ -640,6 +656,15 @@ function render(force){
 extendScheduleIfNeeded();
 render();
 if(cfg) sync();
+// A home-screen app can stay "open" for weeks, so top the schedule up and re-check
+// the date every time it returns to the foreground, not only on a cold start.
+let lastSeenDay = todayStr();
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) return;
+  const added = extendScheduleIfNeeded();
+  if(added || todayStr() !== lastSeenDay){ lastSeenDay = todayStr(); render(true); }
+  if(cfg) sync();
+});
 // Register with updateViaCache:'none' so the worker script is never served from
 // the HTTP cache — updates reach the phone on the next open, not a day later.
 if('serviceWorker' in navigator){
