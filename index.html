@@ -93,6 +93,13 @@
   <span id="syncBadge">local only</span>
 </header>
 <main>
+  <section class="card" id="chatgpt-coach-connect">
+    <h2>Private ChatGPT coach</h2>
+    <p style="font-size:13px">Copy this device's training log, weight entries, goals and workouts into your private ChatGPT coach. No Arnold sign-in needed.</p>
+    <button type="button" class="big" onclick="openChatGPTCoach()">Connect to ChatGPT coach</button>
+    <p class="muted">This sends a dated copy. Repeat when you want to refresh your coach.</p>
+  </section>
+
   <section id="view-today"></section>
   <section id="view-plan" class="hide"></section>
   <section id="view-stats" class="hide"></section>
@@ -1175,6 +1182,28 @@ if('serviceWorker' in navigator){
     document.addEventListener('visibilitychange', () => { if(!document.hidden) reg.update(); });
   }).catch(()=>{});
 }
+</script>
+
+<script>
+// User-initiated data copy to Brent's private Arnold plugin. Never exports credentials.
+const ARNOLD_COACH_ORIGIN = 'https://arnold-training-coach.brentgrant.chatgpt.site';
+let arnoldCoachWindow = null;
+function openChatGPTCoach(){
+  arnoldCoachWindow = window.open(ARNOLD_COACH_ORIGIN + '/', 'arnold-training-coach');
+  if(!arnoldCoachWindow) toast('Allow the coach tab to open, then try again.');
+}
+window.addEventListener('message', async function(event){
+  if(event.origin !== ARNOLD_COACH_ORIGIN || !arnoldCoachWindow || event.source !== arnoldCoachWindow) return;
+  if(event.data?.type !== 'arnold-coach-request' || typeof event.data.requestId !== 'string' || event.data.requestId.length > 100) return;
+  const child = arnoldCoachWindow;
+  const requestId = event.data.requestId;
+  try {
+    const snapshot = await window.arnoldBackup();
+    child.postMessage({type:'arnold-coach-snapshot',requestId,snapshot}, ARNOLD_COACH_ORIGIN);
+  } catch(e) {
+    child.postMessage({type:'arnold-coach-error',requestId}, ARNOLD_COACH_ORIGIN);
+  }
+});
 </script>
 </body>
 </html>
