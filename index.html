@@ -95,9 +95,9 @@
 <main>
   <section class="card" id="chatgpt-coach-connect">
     <h2>Private ChatGPT coach</h2>
-    <p style="font-size:13px">Copy this device's training log, weight entries, goals and workouts into your private ChatGPT coach. No Arnold sign-in needed.</p>
+    <p style="font-size:13px">Connect your existing Arnold sync to your private ChatGPT coach. No Arnold sign-in needed.</p>
     <button type="button" class="big" onclick="openChatGPTCoach()">Connect to ChatGPT coach</button>
-    <p class="muted">This sends a dated copy. Repeat when you want to refresh your coach.</p>
+    <p class="muted">Connect once. Your coach can then read your synced cloud records.</p>
   </section>
 
   <section id="view-today"></section>
@@ -1199,7 +1199,8 @@ window.addEventListener('message', async function(event){
   const requestId = event.data.requestId;
   try {
     const snapshot = await window.arnoldBackup();
-    child.postMessage({type:'arnold-coach-snapshot',requestId,snapshot}, ARNOLD_COACH_ORIGIN);
+    const cloud = cfg && !session ? {url:cfg.url,key:cfg.key} : null;
+    child.postMessage({type:'arnold-coach-snapshot',requestId,snapshot:cloud ? null : snapshot,cloud}, ARNOLD_COACH_ORIGIN);
   } catch(e) {
     child.postMessage({type:'arnold-coach-error',requestId}, ARNOLD_COACH_ORIGIN);
   }
