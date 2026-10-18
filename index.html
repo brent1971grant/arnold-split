@@ -93,13 +93,6 @@
   <span id="syncBadge">local only</span>
 </header>
 <main>
-  <section class="card" id="chatgpt-coach-connect">
-    <h2>Private ChatGPT coach</h2>
-    <p style="font-size:13px">Connect your existing Arnold sync to your private ChatGPT coach. No Arnold sign-in needed.</p>
-    <button type="button" class="big" onclick="openChatGPTCoach()">Connect to ChatGPT coach</button>
-    <p class="muted">Connect once. Your coach can then read your synced cloud records.</p>
-  </section>
-
   <section id="view-today"></section>
   <section id="view-plan" class="hide"></section>
   <section id="view-stats" class="hide"></section>
@@ -123,12 +116,18 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 10;
+const APP_VERSION = 11;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
 // Exact column list for training_log, so every row sent to the server has the same shape.
 const COLS = ['date','day','week','focus','target_muscles','status','trained_as','body_weight','notes','updated_at','top_set','tags'];
+// top_reps is sent only once the server has that column (seen on a pull), so a database
+// without it keeps syncing. Until then reps stay on this device.
+const ALL_COLS = COLS.concat('top_reps');
+// Days the rolling schedule creates carry this stamp, so any real entry for the same
+// date - from another device or already in the cloud - always wins the merge.
+const GENERATED_AT = '1970-01-01T00:00:00.000Z';
 // Goals are stored in the cloud (app_settings 'goals') so phone and desktop agree.
 // These are the original programme values, used until the first sync or a change under Setup.
 const DEFAULT_GOALS = { target_kg: 84, target_date: '2026-10-04', mj_start: '2026-05-16', mj_start_kg: 95,
@@ -142,6 +141,7 @@ let goals = Object.assign({}, DEFAULT_GOALS, load('as_goals') || {});
 let goalsDirty = !!load('as_goals_dirty');
 let workouts = load('as_workouts') || [];
 let autoSeen = new Set(load('as_autoseen') || []);
+let repsCol = !!load('as_reps_col');
 
 function load(k){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; }catch(e){ return null; } }
 function persist(){
@@ -165,7 +165,7 @@ function setField(date, field, value){
   persist();
   scheduleSync();
 }
-function toServer(r){ const o = {}; COLS.forEach(k => { o[k] = (r[k] === undefined || (Array.isArray(r[k]) && !r[k].length)) ? null : r[k]; }); return o; }
+function toServer(r, cols){ const o = {}; (cols || (repsCol ? ALL_COLS : COLS)).forEach(k => { o[k] = (r[k] === undefined || (Array.isArray(r[k]) && !r[k].length)) ? null : r[k]; }); return o; }
 
 /* ============ ROLLING SCHEDULE (never runs out) ============ */
 const MUSCLES = {
@@ -209,7 +209,7 @@ function extendScheduleIfNeeded(force){
     if(byDate(date)) continue;
     rows.push({ date, day: dn, week, focus, target_muscles: MUSCLES[focus],
       status: 'Planned', trained_as: focus, body_weight: null, notes: null,
-      top_set: null, tags: null, updated_at: new Date().toISOString() });
+      top_set: null, tags: null, updated_at: GENERATED_AT });
     dirty.add(date);
     added++;
   }
@@ -223,21 +223,27 @@ function computeMetrics(rows, todayISO, g){
   g = g || { target_kg: 84, mj_start: '2026-05-16', mj_start_kg: 95 };
   const isTraining = r => r.focus !== 'Rest & Recover';
   const doneTraining = r => r.status === 'Completed' && r.trained_as !== 'Rest & Recover';
+  // The schedule always runs weeks ahead, so rates count only days that are due:
+  // every past day, plus today once it has been marked.
+  const isDue = r => r.date < todayISO || (r.date === todayISO && r.status !== 'Planned');
+  const due = rows.filter(isDue);
   const types = ['Chest & Back','Shoulders & Arms','Legs'];
   const perType = types.map(t => {
-    const sched = rows.filter(r => r.focus === t).length;
-    const comp = rows.filter(r => r.trained_as === t && r.status === 'Completed').length;
+    const sched = due.filter(r => r.focus === t).length;
+    const comp = due.filter(r => r.trained_as === t && r.status === 'Completed').length;
     return { type:t, sched, comp, pct: sched ? comp/sched : 0 };
   });
-  const completed = rows.filter(doneTraining).length;
-  const missed = rows.filter(r => r.status === 'Missed').length;
-  const remaining = rows.filter(r => isTraining(r) && r.status === 'Planned').length;
-  const totalTraining = rows.filter(isTraining).length;
-  const weekNums = [...new Set(rows.map(r => r.week))].sort((a,b) => a-b);
+  const completed = due.filter(doneTraining).length;
+  const missed = due.filter(r => r.status === 'Missed').length;
+  // Past training days never marked either way.
+  const unmarked = rows.filter(r => isTraining(r) && r.status === 'Planned' && r.date < todayISO).length;
+  const totalTraining = due.filter(isTraining).length;
+  // Weeks up to and including this one - not the empty weeks already scheduled ahead.
+  const weekNums = [...new Set(rows.filter(r => r.date <= todayISO).map(r => r.week))].sort((a,b) => a-b);
   const weekly = weekNums.map(w => {
     const wr = rows.filter(r => r.week === w);
-    const sched = wr.filter(isTraining).length;
-    const done = wr.filter(doneTraining).length;
+    const sched = wr.filter(r => isDue(r) && isTraining(r)).length;
+    const done = wr.filter(r => isDue(r) && doneTraining(r)).length;
     const ws = wr.filter(r => r.body_weight != null).map(r => r.body_weight);
     return { week:w, done, sched, pct: sched ? done/sched : 0,
       avgW: ws.length ? ws.reduce((a,b)=>a+b,0)/ws.length : null };
@@ -253,13 +259,17 @@ function computeMetrics(rows, todayISO, g){
     progress: (start - goal) !== 0 ? (start - current)/(start - goal) : 0
   };
   const mjDays = Math.floor((Date.parse(todayISO) - Date.parse(g.mj_start)) / 86400000);
+  // Logged shots count exactly. Before the first logged one, assume one a week from the start.
+  const inj = (g.injections || []).map(i => i.date).filter(d => d <= todayISO).sort();
+  const weeksBefore = d => Math.max(0, Math.ceil((Date.parse(d) - Date.parse(g.mj_start)) / (7 * 86400000)));
   const mj = {
-    shots: mjDays >= 0 ? Math.floor(mjDays/7) + 1 : 0,
+    shots: inj.length ? weeksBefore(inj[0]) + inj.length : mjDays >= 0 ? Math.floor(mjDays/7) + 1 : 0,
+    logged: inj.length, lastShot: inj.length ? inj[inj.length - 1] : null,
     down: current != null ? +(g.mj_start_kg - current).toFixed(1) : null,
     journey: current != null && g.mj_start_kg !== goal ? (g.mj_start_kg - current)/(g.mj_start_kg - goal) : null
   };
-  return { perType, completed, missed, remaining, totalTraining,
-    overallPct: totalTraining ? completed/totalTraining : 0, weekly, weights, wm, mj };
+  return { perType, completed, missed, unmarked, totalTraining,
+    overallPct: totalTraining ? Math.min(1, completed/totalTraining) : 0, weekly, weights, wm, mj };
 }
 function mean(a){ return a.length ? a.reduce((s,x) => s + x, 0) / a.length : null; }
 // Trend weight: 7-day rolling average, kg/week from a least-squares line over the
@@ -320,6 +330,11 @@ function blockStats(rows, todayISO){
   const b = blockOf(tr.week);
   return { cur: one(b), prev: b > 1 ? one(b - 1) : null, weekInBlock: ((tr.week - 1) % 12) + 1 };
 }
+// Estimated one-rep max (Epley). Only for sets with reps logged.
+function e1rm(kg, reps){
+  if(!(kg > 0) || !(reps > 0)) return null;
+  return reps === 1 ? +kg : +(kg * (1 + reps / 30)).toFixed(1);
+}
 function strengthStats(rows){
   const types = ['Chest & Back','Shoulders & Arms','Legs'];
   const lifts = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -327,9 +342,31 @@ function strengthStats(rows){
     const pts = rows.filter(r => r.top_set != null && (r.trained_as || r.focus) === type).sort((a,b) => a.date < b.date ? -1 : 1);
     if(!pts.length) return { type, lift: lifts[type], n: 0 };
     const first = +pts[0].top_set, last = +pts[pts.length-1].top_set;
+    const maxes = pts.map(p => e1rm(+p.top_set, +p.top_reps)).filter(x => x != null);
     return { type, lift: lifts[type], n: pts.length, first, last, lastDate: pts[pts.length-1].date,
-      best: Math.max(...pts.map(p => +p.top_set)), change: +(last - first).toFixed(1) };
+      best: Math.max(...pts.map(p => +p.top_set)), change: +(last - first).toFixed(1),
+      bestE1rm: maxes.length ? Math.max(...maxes) : null };
   });
+}
+// Each lift's top set and the 7-day average body weight as a % of where they stood at
+// the first logged top set, so lifts of different sizes share one scale. x = day number.
+function strengthVsWeight(rows, weights, avg7){
+  const logs = rows.filter(r => r.top_set != null).sort((a,b) => a.date < b.date ? -1 : 1);
+  if(!logs.length || !weights.length) return null;
+  const day = d => Math.round(Date.parse(d) / 86400000);
+  const lifts = ['Chest & Back','Shoulders & Arms','Legs'].map(type => {
+    const pts = logs.filter(r => (r.trained_as || r.focus) === type);
+    if(pts.length < 2) return null;
+    const base = +pts[0].top_set;
+    return { type, data: pts.map(r => ({ x: day(r.date), y: +(+r.top_set / base * 100).toFixed(1) })) };
+  }).filter(Boolean);
+  if(!lifts.length) return null;
+  const from = logs[0].date;
+  let b = -1;
+  weights.forEach((w, i) => { if(w.date <= from) b = i; });
+  if(b < 0) b = 0;
+  const body = weights.slice(b).map((w, i) => ({ x: day(w.date), y: +(avg7[b + i] / avg7[b] * 100).toFixed(1) }));
+  return { lifts, body };
 }
 /* METRICS-END */
 
@@ -392,10 +429,23 @@ async function pushRows(list){
   if(!list.length) return;
   const stamp = new Map(list.map(r => [r.date, r.updated_at]));
   const up = await api('/rest/v1/training_log', { method: 'POST',
-    headers: { 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify(list.map(toServer)) });
+    headers: { 'Prefer': 'resolution=merge-duplicates' }, body: JSON.stringify(list.map(r => toServer(r))) });
   if(!up.ok) throw new Error('push ' + up.status);
   // Only clear rows not edited again while the upload was in flight.
   for(const [d, u] of stamp){ const r = byDate(d); if(!r || r.updated_at === u) dirty.delete(d); }
+}
+// Supabase returns at most 1,000 rows per request, so read page by page until one comes
+// back empty. The path must carry its own order= so the pages never overlap.
+async function pullAll(path){
+  const out = [];
+  for(let guard = 0; guard < 100; guard++){
+    const res = await api(path + '&offset=' + out.length);
+    if(!res.ok) throw new Error('pull ' + res.status);
+    const page = await res.json();
+    if(!Array.isArray(page) || !page.length) break;
+    out.push(...page);
+  }
+  return out;
 }
 // Goals: last write wins, by the time stamp inside the saved value.
 async function syncGoals(){
@@ -417,9 +467,7 @@ async function syncGoals(){
 async function pullWorkouts(){
   try{
     const since = addDays(todayStr(), -400);
-    const res = await api('/rest/v1/workouts?select=id,date,name,start_at,duration_min,avg_hr,max_hr,active_kcal&date=gte.' + since + '&order=start_at.asc');
-    if(!res.ok) return;
-    const list = await res.json();
+    const list = await pullAll('/rest/v1/workouts?select=id,date,name,start_at,duration_min,avg_hr,max_hr,active_kcal&date=gte.' + since + '&order=start_at.asc,id.asc');
     if(Array.isArray(list)){ workouts = list; localStorage.setItem('as_workouts', JSON.stringify(workouts)); }
   }catch(e){ /* keep the last copy */ }
 }
@@ -449,9 +497,13 @@ async function sync(){
   if(syncing){ syncAgain = true; return; }
   syncing = true; badge('syncing…');
   try{
-    const res = await api('/rest/v1/training_log?select=*');
-    if(!res.ok) throw new Error('pull ' + res.status);
-    const server = await res.json();
+    const server = await pullAll('/rest/v1/training_log?select=*&order=date.asc');
+    // The first time the cloud has a top_reps column, send up reps kept on this device.
+    if(server.length && !repsCol && 'top_reps' in server[0]){
+      repsCol = true; localStorage.setItem('as_reps_col', 'true');
+      const now = new Date().toISOString();
+      rows.forEach(r => { if(r.top_reps != null){ r.updated_at = now; dirty.add(r.date); } });
+    }
     if(server.length === 0){
       // An empty answer while signed out means the data is locked, not missing. Never seed then.
       if(!session) throw new Error('signin');
@@ -614,7 +666,32 @@ function lastTopSet(type, before){
     .sort((a,b) => a.date < b.date ? -1 : 1);
   if(!pts.length) return null;
   const last = pts[pts.length - 1];
-  return { date: last.date, top_set: +last.top_set, best: Math.max(...pts.map(p => +p.top_set)) };
+  return { date: last.date, top_set: +last.top_set, reps: last.top_reps != null ? +last.top_reps : null,
+    best: Math.max(...pts.map(p => +p.top_set)) };
+}
+// Rep range of the session's first lift, from the Guide (e.g. '4 x 8-12' -> 8 to 12).
+function repRange(type){
+  const g = GUIDE.find(x => x.focus === type);
+  const m = g && /(\d+)\s*-\s*(\d+)\s*$/.exec(g.items[0][1]);
+  return m ? { min: +m[1], max: +m[2] } : null;
+}
+function topSetInfo(r){
+  const type = r.trained_as || r.focus;
+  const prev = lastTopSet(type, r.date);
+  const lines = [];
+  const est = e1rm(+r.top_set, +r.top_reps);
+  if(est != null) lines.push('Estimated max today: <b>' + est + ' kg</b>');
+  if(prev) lines.push('Last time ' + fmtD(prev.date) + ': ' + prev.top_set + ' kg' + (prev.reps ? ' &times; ' + prev.reps : '')
+    + (prev.best > prev.top_set ? ' &middot; best ' + prev.best + ' kg' : ''));
+  const range = repRange(type);
+  if(prev && prev.reps && range && prev.reps >= range.max && r.top_set == null)
+    lines.push('<span style="color:var(--good);font-weight:700">&#11014; Go heavier:</span> you hit ' + prev.reps
+      + ' reps last time, the top of the ' + range.min + '-' + range.max + ' range. Try about ' + Math.round((prev.top_set + 2.5) * 10) / 10 + ' kg.');
+  return lines.join('<br>');
+}
+function refreshTopSetInfo(){
+  const el = document.getElementById('topSetInfo'), r = byDate(curDate());
+  if(el && r) el.innerHTML = topSetInfo(r);
 }
 
 /* ---------- Today ---------- */
@@ -654,11 +731,16 @@ function renderToday(){
       <div class="chips">${FOCI.map(f =>
         `<button class="chip ${r.trained_as===f?'sel':''}" onclick="setTrainedAs('${f.replace(/'/g,"\\'")}')">${f}</button>`).join('')}
       </div>
-      ${lift ? `<label class="fld">Top set: ${lift} (kg${/Dumbbell/.test(lift) ? ' per dumbbell' : ''})</label>
-      <input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" id="topSetInput"
-        value="${r.top_set ?? ''}" placeholder="${prev ? 'last time ' + prev.top_set : 'heaviest working set'}"
-        onchange="saveTopSet(this.value)">
-      ${prev ? `<div class="muted" style="margin-top:4px">Last time ${fmtD(prev.date)}: ${prev.top_set} kg${prev.best > prev.top_set ? ' &middot; best ' + prev.best + ' kg' : ''}</div>` : ''}` : ''}
+      ${lift ? `<label class="fld">Top set: ${lift} (kg${/Dumbbell/.test(lift) ? ' per dumbbell' : ''} &times; reps)</label>
+      <div class="row2">
+        <div style="flex:2"><input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" id="topSetInput"
+          value="${r.top_set ?? ''}" placeholder="${prev ? 'last time ' + prev.top_set : 'heaviest working set'}"
+          onchange="saveTopSet(this.value)"></div>
+        <div style="flex:1"><input type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done" id="topRepsInput"
+          value="${r.top_reps ?? ''}" placeholder="${prev && prev.reps ? 'last ' + prev.reps : 'reps'}"
+          onchange="saveTopReps(this.value)"></div>
+      </div>
+      <div class="muted" id="topSetInfo" style="margin-top:4px">${topSetInfo(r)}</div>` : ''}
       <label class="fld">Body weight (kg)</label>
       <input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" id="bwInput"
         value="${r.body_weight ?? ''}" placeholder="e.g. 87.2"
@@ -717,7 +799,7 @@ function saveWeight(v){
 }
 function saveTopSet(v){
   const raw = String(v == null ? '' : v).trim();
-  if(raw === ''){ setField(curDate(), 'top_set', null); toast('Top set cleared'); return; }
+  if(raw === ''){ setField(curDate(), 'top_set', null); toast('Top set cleared'); refreshTopSetInfo(); return; }
   const n = parseKg(raw);
   if(isNaN(n) || n <= 0 || n > 500){ toast('Enter a weight like 32.5'); return; }
   const kg = Math.round(n * 10) / 10;
@@ -725,6 +807,18 @@ function saveTopSet(v){
   const el = document.getElementById('topSetInput');
   if(el && document.activeElement !== el) el.value = kg;
   toast('Top set saved: ' + kg + ' kg');
+  refreshTopSetInfo();
+}
+function saveTopReps(v){
+  const raw = String(v == null ? '' : v).trim();
+  if(raw === ''){ setField(curDate(), 'top_reps', null); toast('Reps cleared'); refreshTopSetInfo(); return; }
+  const n = parseInt(raw, 10);
+  if(isNaN(n) || n < 1 || n > 50){ toast('Enter reps like 10'); return; }
+  setField(curDate(), 'top_reps', n);
+  const el = document.getElementById('topRepsInput');
+  if(el && document.activeElement !== el) el.value = n;
+  toast('Reps saved: ' + n + (cfg && !repsCol ? ' (on this device until the cloud has a reps column - see Setup)' : ''), cfg && !repsCol ? 3500 : 1400);
+  refreshTopSetInfo();
 }
 function toggleTag(t){
   const r = byDate(curDate()); if(!r) return;
@@ -780,7 +874,7 @@ function renderPlan(){
 }
 
 /* ---------- Stats ---------- */
-let chart = null;
+let chart = null, swChart = null;
 let wRange = 30; // days shown on the weight chart; 0 = all
 let jQ = '', jTag = '';
 function setWRange(n){ wRange = n; renderStats(); }
@@ -847,10 +941,18 @@ function strengthCard(){
   return `<div class="card"><h2>Strength &middot; top set, first lift</h2>
     <table><tr><th>Lift</th><th class="num">First</th><th class="num">Latest</th><th class="num">Best</th><th class="num">+/-</th></tr>
     ${s.map(x => `<tr><td><span style="color:${DCOLORS[x.type]};font-weight:600">${x.lift}</span>
-        <div class="muted">${x.n ? x.n + ' logged, last ' + fmtD(x.lastDate) : 'none yet'}</div></td>
+        <div class="muted">${x.n ? x.n + ' logged, last ' + fmtD(x.lastDate) : 'none yet'}${x.bestE1rm ? ' &middot; best est. max ' + x.bestE1rm : ''}</div></td>
       <td class="num">${x.n ? x.first : '–'}</td><td class="num">${x.n ? x.last : '–'}</td><td class="num">${x.n ? x.best : '–'}</td>
       <td class="num" style="font-weight:700;color:${x.n > 1 ? (x.change > 0 ? 'var(--good)' : x.change < 0 ? 'var(--bad)' : 'inherit') : 'inherit'}">${x.n > 1 ? sgn(x.change) : '–'}</td></tr>`).join('')}
-    </table><p class="muted" style="margin:8px 0 0">kg. Dumbbell press is per dumbbell.</p></div>`;
+    </table><p class="muted" style="margin:8px 0 0">kg. Dumbbell press is per dumbbell. Estimated max needs reps logged with the top set.</p></div>`;
+}
+const SW_COLORS = {'Chest & Back':'#2E86C1','Shoulders & Arms':'#8E44AD','Legs':'#B7950B'};
+const SW_LABELS = {'Chest & Back':'Incline press','Shoulders & Arms':'Overhead press','Legs':'Hack squat'};
+function strengthWeightCard(sw){
+  if(!sw) return '';
+  return `<div class="card"><h2>Strength vs body weight</h2>
+    <canvas id="swChart" height="190"></canvas>
+    <p class="muted" style="margin:8px 0 0">Change since your first logged top set (100% = where each started). Lift lines holding at or above 100% while body weight falls means you are keeping your strength as the weight comes off.</p></div>`;
 }
 function watchCard(){
   if(!workouts.length) return `<div class="card"><h2>Apple Watch</h2><p class="muted" style="margin:0">No Watch workouts received yet. The Health Auto Export feed is described under Setup.</p></div>`;
@@ -883,14 +985,28 @@ function watchCard(){
 function mjCard(m){
   const dose = currentDose(todayStr());
   const ds = [...(goals.doses || [])].sort((a,b) => a.from < b.from ? -1 : 1);
+  const inj = [...(goals.injections || [])].sort((a,b) => a.date < b.date ? 1 : -1);
+  const since = m.mj.lastShot ? Math.round((Date.parse(todayStr()) - Date.parse(m.mj.lastShot)) / 86400000) : null;
   return `<div class="card">
     <h2>Mounjaro${dose ? ' &middot; ' + dose.mg + ' mg weekly' : ''}</h2>
     <div class="grid2">
-      <div class="stat"><div class="v">${m.mj.shots}</div><div class="l">Shots since ${fmtD(goals.mj_start)}</div></div>
+      <div class="stat"><div class="v">${m.mj.shots}</div><div class="l">Shots since ${fmtD(goals.mj_start)}${m.mj.logged ? '' : ' (est.)'}</div></div>
       <div class="stat"><div class="v">${m.mj.down != null ? m.mj.down.toFixed(1) : '–'}</div><div class="l">Kg down (from ${goals.mj_start_kg})</div></div>
     </div>
     ${m.mj.journey != null ? `<div class="bar"><div style="width:${Math.max(0, Math.min(100, m.mj.journey*100))}%"></div></div>
     <p class="muted" style="text-align:center;margin:6px 0 0">${Math.round(m.mj.journey*100)}% of the journey from ${goals.mj_start_kg} to ${goals.target_kg} kg</p>` : ''}
+    <label class="fld">Log a shot</label>
+    <div class="row2">
+      <div><input type="date" id="injDate" value="${todayStr()}"></div>
+      <div><input type="text" inputmode="decimal" id="injMg" value="${dose ? dose.mg : ''}" placeholder="mg"></div>
+    </div>
+    <button class="primary" onclick="logShot()">&#128137; Log shot</button>
+    ${since != null
+      ? `<p class="${since > 8 ? 'warnline' : 'muted'}" style="font-size:12px;margin:8px 0 0">Last shot ${fmtD(m.mj.lastShot)} (${since === 0 ? 'today' : since === 1 ? 'yesterday' : since + ' days ago'}).</p>`
+      : '<p class="muted" style="margin:8px 0 0">No shots logged yet. Until you log one, the count assumes one a week since the start date.</p>'}
+    ${inj.length ? `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Shot history (${inj.length})</summary>
+      <table>${inj.map(i => `<tr><td>${fmtDY(i.date)}</td><td class="num">${i.mg} mg</td>
+        <td class="num"><button class="link" style="color:var(--bad);padding:0;font-size:13px" onclick="removeShot('${i.date}')">remove</button></td></tr>`).join('')}</table></details>` : ''}
     <p class="muted" style="margin:8px 0 0">Doses: ${ds.map(d => d.mg + ' mg from ' + fmtDY(d.from)).join(' &middot; ')}. Change under Setup.</p>
   </div>`;
 }
@@ -929,6 +1045,7 @@ function renderStats(){
   const el = document.getElementById('view-stats');
   const m = computeMetrics(rows, todayStr(), goals);
   const tr = weightTrend(m.weights, todayStr(), goals);
+  const sw = strengthVsWeight(rows, m.weights, tr.avg7);
   el.innerHTML = `
     <div class="card">
       <h2>Overall training</h2>
@@ -936,14 +1053,15 @@ function renderStats(){
         <div class="stat"><div class="v">${m.completed}/${m.totalTraining}</div><div class="l">Completed</div></div>
         <div class="stat"><div class="v">${Math.round(m.overallPct*100)}%</div><div class="l">Complete</div></div>
         <div class="stat"><div class="v">${m.missed}</div><div class="l">Missed</div></div>
-        <div class="stat"><div class="v">${m.remaining}</div><div class="l">Remaining</div></div>
+        <div class="stat"><div class="v" style="color:${m.unmarked ? 'var(--warn)' : 'inherit'}">${m.unmarked}</div><div class="l">Unmarked</div></div>
       </div>
       <div class="bar"><div style="width:${Math.min(100, m.overallPct*100)}%"></div></div>
-      <p class="muted" style="text-align:center;margin:8px 0 0">${rows.length ? fmtD(rows[0].date) + ' to ' + fmtD(rows[rows.length-1].date) + ' · ' + m.weekly.length + ' weeks' : ''}</p>
+      <p class="muted" style="text-align:center;margin:8px 0 0">${rows.length ? 'Sessions due so far, ' + fmtD(rows[0].date) + ' to today · ' + m.weekly.length + ' weeks' : ''}</p>
     </div>
     ${blockCard()}
     ${weightCard(m, tr)}
     ${strengthCard()}
+    ${strengthWeightCard(sw)}
     ${watchCard()}
     <div class="card">
       <h2>By workout type</h2>
@@ -993,6 +1111,23 @@ function renderStats(){
       options:{ plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } },
         scales:{ x:{ ticks:{ maxTicksLimit:6, autoSkip:true, maxRotation:0 } },
                  y:{ suggestedMin: goals.target_kg - 2 } }, maintainAspectRatio:true }
+    });
+  }
+  if(swChart){ swChart.destroy(); swChart = null; }
+  if(sw && window.Chart){
+    const isoOf = x => new Date(x * 86400000).toISOString().slice(0, 10);
+    const xs = sw.lifts.flatMap(l => l.data).concat(sw.body).map(p => p.x);
+    swChart = new Chart(document.getElementById('swChart'), {
+      type:'line',
+      data:{ datasets: sw.lifts.map(l => ({ label: SW_LABELS[l.type], data: l.data, borderColor: SW_COLORS[l.type],
+          backgroundColor: SW_COLORS[l.type], borderWidth:2, pointRadius:2.5, tension:.2, fill:false }))
+        .concat([{ label:'Body weight', data: sw.body, borderColor:'#16324F', borderWidth:2.5, borderDash:[6,4],
+          pointRadius:0, tension:.3, fill:false }]) },
+      options:{ plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
+          tooltip:{ callbacks:{ title: items => items.length ? fmtD(isoOf(items[0].parsed.x)) : '' } } },
+        scales:{ x:{ type:'linear', min: Math.min(...xs), max: Math.max(...xs),
+                     ticks:{ maxTicksLimit:4, maxRotation:0, callback: v => fmtD(isoOf(Math.round(v))) } },
+                 y:{ ticks:{ callback: v => v + '%' } } }, maintainAspectRatio:true }
     });
   }
 }
@@ -1064,12 +1199,27 @@ function renderSettings(){
         <tr><td class="muted">Data</td><td style="font-size:12px">Workouts only, JSON, export version 2, sync daily</td></tr>
       </table>
       <p class="muted" style="margin:8px 0 0">${workouts.length ? workouts.length + ' Watch workouts on file, latest ' + fmtD(latestWo) + '.' : 'No Watch workouts on file yet.'}</p>
+      <p style="font-size:13px;font-weight:700;margin:14px 0 4px">Automatic weigh-ins</p>
+      <p class="muted" style="margin:0 0 6px">A smart scale that writes to Apple Health can fill in your body weight. Add a second automation in Health Auto Export (needs the v11 upgrade run in Supabase first).</p>
+      <table>
+        <tr><td class="muted">URL</td><td style="word-break:break-all;font-size:12px">${cfg ? esc(cfg.url) : 'https://YOUR-PROJECT.supabase.co'}/rest/v1/rpc/ingest_hae_metrics</td></tr>
+        <tr><td class="muted">Headers</td><td style="font-size:12px">Same two as above</td></tr>
+        <tr><td class="muted">Data</td><td style="font-size:12px">Health Metrics, Weight &amp; Body Mass only, JSON, export version 2, time grouping Day, sync daily</td></tr>
+      </table>
+      <p class="muted" style="margin:8px 0 0">It only fills days with no weight, so a weight you type always wins.</p>
+    </div>
+    <div class="card" id="chatgpt-coach-connect">
+      <h2>Private ChatGPT coach</h2>
+      <p style="font-size:13px;margin-top:0">Connect your existing Arnold sync to your private ChatGPT coach. No Arnold sign-in needed.</p>
+      <button type="button" class="big" style="width:100%" onclick="openChatGPTCoach()">Connect to ChatGPT coach</button>
+      <p class="muted" style="margin-bottom:0">Connect once. Your coach can then read your synced cloud records.</p>
     </div>
     <div class="card">
       <h2>Data</h2>
       <button class="primary" style="background:#39566f" onclick="exportCSV()">Export CSV (for Excel)</button>
       <button class="primary" style="background:#39566f" onclick="downloadBackup()">Download full backup (JSON)</button>
       <button class="primary" style="background:#39566f" onclick="extendNow()">Extend programme by 12 weeks</button>
+      ${cfg && !repsCol ? '<p class="warnline" style="font-size:13px">Reps stay on this device until the cloud has a top_reps column. Run the v11 upgrade (supabase/v11-upgrade.sql) once in the Supabase SQL editor.</p>' : ''}
       <p class="muted" style="margin-bottom:0">${rows.length} days &middot; ${dirty.size} unsynced change${dirty.size===1?'':'s'} &middot; ${workouts.length} Watch workouts &middot; app version ${APP_VERSION}</p>
     </div>`;
 }
@@ -1123,9 +1273,24 @@ function removeDose(from){
   if(!confirm('Remove the dose starting ' + fmtDY(from) + '?')) return;
   commitGoals({ ...goals, doses: goals.doses.filter(d => d.from !== from) }, 'Dose removed');
 }
+// Shots live with the goals (app_settings 'goals'), so they sync without a new table.
+function logShot(){
+  const date = document.getElementById('injDate').value;
+  const mg = parseFloat(String(document.getElementById('injMg').value).replace(/,/g, '.'));
+  if(!date || date > todayStr()){ toast('Pick the date of the shot (not in the future)'); return; }
+  if(!(mg > 0 && mg <= 20)){ toast('Enter the dose in mg, e.g. 5'); return; }
+  const list = (goals.injections || []).filter(i => i.date !== date).concat([{ date, mg }]).sort((a,b) => a.date < b.date ? -1 : 1);
+  commitGoals({ ...goals, injections: list }, 'Shot logged: ' + mg + ' mg on ' + fmtD(date));
+}
+function removeShot(date){
+  if(!confirm('Remove the shot logged on ' + fmtDY(date) + '?')) return;
+  commitGoals({ ...goals, injections: (goals.injections || []).filter(i => i.date !== date) }, 'Shot removed');
+}
 function buildCSV(){
-  const head = 'Date,Day,Week,Block,Focus,Target Muscles,Status,Trained As,Body Weight (kg),Top Set (kg),Tags,Notes,Watch Minutes,Watch Avg HR,Watch Max HR';
+  // New columns go on the end, so anything reading the older layout keeps working.
+  const head = 'Date,Day,Week,Block,Focus,Target Muscles,Status,Trained As,Body Weight (kg),Top Set (kg),Tags,Notes,Watch Minutes,Watch Avg HR,Watch Max HR,Top Reps,Est. Max (kg),Shot (mg)';
   const q = v => v == null ? '' : /[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g,'""') + '"' : String(v);
+  const shots = new Map((goals.injections || []).map(i => [i.date, i.mg]));
   return [head, ...rows.map(r => {
     const wos = workoutsOn(r.date);
     const hr = wos.filter(w => w.avg_hr);
@@ -1133,7 +1298,8 @@ function buildCSV(){
       (r.tags || []).join('; '), r.notes,
       wos.length ? Math.round(wos.reduce((a,w) => a + (w.duration_min || 0), 0)) : null,
       hr.length ? Math.round(mean(hr.map(w => w.avg_hr))) : null,
-      hr.length ? Math.round(Math.max(...wos.map(w => w.max_hr || 0))) : null].map(q).join(',');
+      hr.length ? Math.round(Math.max(...wos.map(w => w.max_hr || 0))) : null,
+      r.top_reps, e1rm(+r.top_set, +r.top_reps), shots.get(r.date)].map(q).join(',');
   })].join('\n');
 }
 function downloadFile(name, text, type){
@@ -1145,7 +1311,7 @@ function exportCSV(){ downloadFile('training_log.csv', buildCSV(), 'text/csv'); 
 function backupData(){
   return { app: 'Arnold Split', app_version: APP_VERSION, exported_at: new Date().toISOString(),
     signed_in: !!session, unsynced_changes: dirty.size, days: rows.length,
-    training_log: rows.map(toServer), goals, workouts };
+    training_log: rows.map(r => toServer(r, ALL_COLS)), goals, workouts };
 }
 function downloadBackup(){ downloadFile('arnold-split-backup-' + todayStr() + '.json', JSON.stringify(backupData(), null, 1), 'application/json'); }
 // Hooks for the monthly backup job: sync first, then hand back everything.
