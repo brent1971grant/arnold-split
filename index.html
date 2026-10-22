@@ -95,6 +95,10 @@
   .entry .et{font:500 11px/1 var(--mono); color:var(--muted); white-space:nowrap;}
   .entry .tx{flex:1; min-width:0; overflow-wrap:anywhere;}
   .entry .x{border:none; background:none; color:var(--muted); font-size:20px; line-height:1; padding:0 4px; align-self:center;}
+  .ptotal{margin:8px 0 2px; padding:9px 12px; border-radius:10px; background:var(--soft);}
+  .ptotal > div:first-child{display:flex; align-items:baseline; gap:8px;}
+  .ptotal b{font:800 24px/1 var(--disp);}
+  .ptotal small{color:var(--muted); font-size:12px;}
   .jitem{font-size:14px; line-height:1.45; margin-top:3px;}
   .jitem .et{font:500 11px/1 var(--mono); color:var(--muted); margin:0 4px;}
   .wtag{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:9px; background:var(--soft); color:var(--muted); margin-right:4px;}
@@ -190,7 +194,19 @@
   #welcome .wtop{display:flex; justify-content:space-between; font-size:11px; font-weight:800; letter-spacing:3px; color:var(--w-dim);}
   #welcome h2{font:400 clamp(44px,13vw,60px)/.92 var(--w-display); text-transform:uppercase; letter-spacing:.5px; color:var(--w-ink); margin:6px 0 0;}
   #welcome h2 span{color:var(--w-gold); display:block;}
-  #welcome .wplate{align-self:center; width:min(250px,68vw); aspect-ratio:1; max-width:100%;}
+  #welcome .wplate{align-self:center; width:min(230px,60vw); aspect-ratio:1; max-width:100%;}
+  #welcome .wshot{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; border-radius:12px;
+    border:1px solid rgba(229,176,74,.45); background:rgba(229,176,74,.10);}
+  #welcome .wshot small{display:block; font-size:10px; font-weight:800; letter-spacing:2px; color:var(--w-gold);}
+  #welcome .wshot b{font:400 22px/1.15 var(--w-display); letter-spacing:.5px;}
+  #welcome .wsmall{border:none; border-radius:10px; background:var(--w-gold); color:#0a141f; font:400 18px/1 var(--w-display); letter-spacing:1px; padding:11px 14px; cursor:pointer;}
+  #welcome .wdone{font-weight:800; color:var(--w-gold); white-space:nowrap;}
+  #welcome .wweigh label{display:block; font-size:10px; font-weight:800; letter-spacing:2px; color:var(--w-dim); margin-bottom:6px; text-transform:uppercase;}
+  #welcome .wkgrow{display:flex; align-items:center; gap:10px;}
+  #welcome .wkgrow input{flex:1; width:100%; background:rgba(255,255,255,.06); border:1px solid var(--w-line); color:var(--w-ink);
+    font:400 26px/1 var(--w-display); letter-spacing:.5px; padding:10px 14px; border-radius:12px;}
+  #welcome .wkgrow input::placeholder{color:var(--w-dim);}
+  #welcome .wkgrow span{color:var(--w-dim); font-weight:700;}
   #welcome .wplate svg{width:100%; height:100%; overflow:visible;}
   #welcome .wnum{font:400 64px/1 var(--w-display);}
   #welcome .wchips{display:grid; grid-template-columns:repeat(auto-fit,minmax(0,1fr)); gap:10px;}
@@ -243,7 +259,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -258,7 +274,9 @@ const GENERATED_AT = '1970-01-01T00:00:00.000Z';
 // Goals are stored in the cloud (app_settings 'goals') so phone and desktop agree.
 // These are the original programme values, used until the first sync or a change under Setup.
 const DEFAULT_GOALS = { target_kg: 84, target_date: '2026-10-04', mj_start: '2026-05-16', mj_start_kg: 95,
-  doses: [{ from: '2026-05-16', mg: 2.5 }], max_hr: 166, auto_complete: true, updated_at: '2026-07-18T00:00:00.000Z' };
+  doses: [{ from: '2026-05-16', mg: 2.5 }], max_hr: 166, auto_complete: true, rest_days: ['Monday', 'Thursday'],
+  protein_target_g: null, updated_at: '2026-07-18T00:00:00.000Z' };
+const restDays = () => Array.isArray(goals.rest_days) ? goals.rest_days : ['Monday', 'Thursday'];
 
 let rows = load('as_rows') || SEED.map(r => ({...r}));
 let dirty = new Set(load('as_dirty') || []);
@@ -331,7 +349,7 @@ function extendScheduleIfNeeded(force){
     const dn = dayNameOf(date);
     if(dn === 'Monday') week++;
     let focus;
-    if(dn === 'Monday' || dn === 'Thursday'){ focus = 'Rest & Recover'; }
+    if(restDays().includes(dn)){ focus = 'Rest & Recover'; }
     else { focus = ROT[rot]; rot = (rot + 1) % 3; }
     if(byDate(date)) continue;
     rows.push({ date, day: dn, week, focus, target_muscles: MUSCLES[focus],
@@ -591,6 +609,16 @@ async function syncGoals(){
     }
   }catch(e){ /* goals stay local until the next sync */ }
 }
+// Daily Apple Health summary (steps, energy, heart, sleep) from the health_daily table.
+// Before that table exists the request fails quietly and the panels stay hidden.
+let health = load('as_health') || [];
+async function pullHealth(){
+  try{
+    const since = addDays(todayStr(), -400);
+    const list = await pullAll('/rest/v1/health_daily?select=date,steps,active_kcal,exercise_min,resting_hr,hrv,sleep_h&date=gte.' + since + '&order=date.asc');
+    if(Array.isArray(list)){ health = list; localStorage.setItem('as_health', JSON.stringify(health)); }
+  }catch(e){ /* no table yet, or offline: keep the last copy */ }
+}
 async function pullWorkouts(){
   try{
     const since = addDays(todayStr(), -400);
@@ -649,6 +677,7 @@ async function sync(){
     }
     await syncGoals();
     await pullWorkouts();
+    await pullHealth();
     const auto = autoComplete();
     if(rows.length) extendScheduleIfNeeded();
     if(dirty.size) await pushRows(rows.filter(r => dirty.has(r.date)));
@@ -886,6 +915,7 @@ function renderToday(){
               <span class="et">${esc(e.time)}</span><span class="tx">${esc(e.text)}</span>
               <button class="x" aria-label="Remove this ${esc(e.topic)} note" onclick="removeEntry(${i})">&times;</button></div>`).join('')}</div>`
         : composeTopic ? '' : '<p class="muted" style="margin:2px 0 0">Tap a topic to add a note about it. Add as many as you like through the day.</p>'}
+      ${proteinLine(parsed)}
       <label class="fld">Other notes</label>
       <textarea id="notesInput" onchange="saveNotes(this.value)" placeholder="optional">${esc(parsed.free)}</textarea>
       ${watchBlock(r)}
@@ -976,6 +1006,17 @@ function parseNotes(notes){
 }
 function buildNotes(p){
   return [p.free, ...p.entries.map(e => `[${e.topic} ${e.time}] ${e.text}`)].filter(x => x && x.trim()).join('\n') || null;
+}
+// Grams in Protein notes ("40 g shake", "chicken 50g") add up to a day total.
+const gramsIn = text => { const m = /(\d+(?:[.,]\d+)?)\s*(?:g|gr|grams?)\b/i.exec(text || ''); return m ? parseFloat(m[1].replace(',', '.')) : null; };
+function proteinLine(parsed){
+  const es = parsed.entries.filter(e => e.topic === 'Protein');
+  if(!es.length) return '';
+  const gs = es.map(e => gramsIn(e.text)).filter(g => g != null);
+  if(!gs.length) return '<p class="muted" style="margin:6px 0 0">Add grams to Protein notes, like "40 g shake", to see a daily total.</p>';
+  const total = Math.round(gs.reduce((a, b) => a + b, 0)), target = +goals.protein_target_g || 0;
+  return `<div class="ptotal"><div><span class="eyebrow">Protein today</span><b>${total} g</b>${target ? `<small>of ${target} g</small>` : ''}</div>
+    ${target ? `<div class="bar"><div style="width:${Math.min(100, total / target * 100).toFixed(0)}%;background:var(--brass)"></div></div>` : ''}</div>`;
 }
 const nowHM = () => { const n = new Date(); return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); };
 function composerHTML(parsed, tags){
@@ -1341,6 +1382,41 @@ function bodyCard(m){
     <div class="pbs three">${cells.map(([v, l]) => `<div class="pb"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
     <p class="muted" style="margin:10px 0 0">Height ${h} m. BMI only knows height and weight, so it can't tell muscle from fat, and with your muscle it reads high. Your waist and body fat tell you more; around 0.5 of your height is the usual waist guide. Update them under Setup.</p></div>`;
 }
+// Apple Health panels: monthly averages of steps, active energy, resting heart rate, HRV and sleep.
+function healthMonths(){
+  const t = todayStr(), full = health.filter(h => h.date < t);
+  const months = [...new Set(full.map(h => h.date.slice(0, 7)))].sort();
+  const avg = (key, m) => { const v = full.filter(h => h.date.startsWith(m) && h[key] != null).map(h => +h[key]); return v.length ? +(v.reduce((a, b) => a + b, 0) / v.length).toFixed(1) : null; };
+  return { months, labels: months.map(m => new Date(m + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'short' })), avg };
+}
+function healthCards(){
+  if(!health.length) return cfg ? `<div class="card"><h2>Apple Health</h2><p class="muted" style="margin:0">Steps, sleep and heart rate show here once the Apple Health feed is set up. See Setup &rarr; Advanced settings &rarr; Apple Watch &amp; Health feeds.</p></div>` : '';
+  const last = health[health.length - 1];
+  return `<div class="card"><h2>Heart</h2><p class="muted" style="margin:0 0 6px">Monthly average resting heart rate and heart rate variability (HRV).</p><canvas id="hHeart" height="200"></canvas></div>
+    <div class="card"><h2>Daily movement</h2><p class="muted" style="margin:0 0 6px">Average steps and active calories a day, by month.</p><canvas id="hMove" height="200"></canvas></div>
+    <div class="card"><h2>Sleep</h2><p class="muted" style="margin:0 0 6px">Average hours a night, on nights your Watch recorded sleep. Latest Apple Health day: ${fmtD(last.date)}.</p><canvas id="hSleep" height="180"></canvas></div>`;
+}
+let healthCharts = [];
+function drawHealthCharts(cssv, chartInk){
+  healthCharts.splice(0).forEach(c => c.destroy());
+  if(!window.Chart || !document.getElementById('hHeart')) return;
+  const { labels, months, avg } = healthMonths(), brass = cssv('--brass');
+  const legend = { display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } };
+  healthCharts.push(new Chart(document.getElementById('hHeart'), { type:'line',
+    data:{ labels, datasets:[
+      { label:'Resting HR (bpm)', data: months.map(m => avg('resting_hr', m)), borderColor: brass, backgroundColor: brass, tension:.3, spanGaps:true, yAxisID:'y' },
+      { label:'HRV (ms)', data: months.map(m => avg('hrv', m)), borderColor: chartInk, backgroundColor: chartInk, tension:.3, spanGaps:true, yAxisID:'y2' } ] },
+    options:{ plugins:{ legend }, scales:{ x:{ grid:{ display:false } }, y:{ position:'left' }, y2:{ position:'right', grid:{ display:false } } } } }));
+  healthCharts.push(new Chart(document.getElementById('hMove'), { type:'bar',
+    data:{ labels, datasets:[
+      { label:'Steps a day', data: months.map(m => avg('steps', m)).map(v => v && Math.round(v)), backgroundColor: chartInk, borderRadius:3, yAxisID:'y' },
+      { type:'line', label:'Active kcal a day', data: months.map(m => avg('active_kcal', m)).map(v => v && Math.round(v)), borderColor: brass, backgroundColor: brass, tension:.3, spanGaps:true, yAxisID:'y2' } ] },
+    options:{ plugins:{ legend }, scales:{ x:{ grid:{ display:false } }, y:{ position:'left' }, y2:{ position:'right', grid:{ display:false } } } } }));
+  const sl = months.map(m => avg('sleep_h', m));
+  healthCharts.push(new Chart(document.getElementById('hSleep'), { type:'bar',
+    data:{ labels: labels.filter((_, i) => sl[i] != null), datasets:[{ label:'Hours a night', data: sl.filter(v => v != null), backgroundColor: chartInk, borderRadius:3 }] },
+    options:{ plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{ display:false } }, y:{ suggestedMin:0, suggestedMax:8, ticks:{ callback: v => v + ' h' } } } } }));
+}
 function sessionsCard(){
   if(!doneSessions().length) return '';
   return `<div class="card"><h2>Sessions each month</h2>
@@ -1395,6 +1471,7 @@ function renderStats(){
     ${mjCard(m)}
     ${bodyCard(m)}
     ${sessionsCard()}
+    ${healthCards()}
     ${strengthCard()}
     ${strengthWeightCard(sw)}
     ${bestsCard(m)}
@@ -1458,6 +1535,7 @@ function renderStats(){
                  y:{ suggestedMin: goals.target_kg - 2 } }, maintainAspectRatio:true }
     });
   }
+  drawHealthCharts(cssv, chartInk);
   if(sessChart){ sessChart.destroy(); sessChart = null; }
   const sc = document.getElementById('sessChart');
   if(sc && window.Chart){
@@ -1518,6 +1596,14 @@ function renderSettings(){
       <label class="fld">Body fat estimate (%)</label>
       <input type="text" inputmode="text" id="gBodyFat" value="${Array.isArray(g.body_fat) ? (g.body_fat[0] === g.body_fat[1] ? g.body_fat[0] : g.body_fat.join('-')) : ''}" placeholder="e.g. 15-18, or a single figure">
       <p class="muted" style="margin:6px 0 0">Height, waist and body fat feed the BMI and body composition panel on Stats. All optional.</p>
+      <div class="row2">
+        <div><label class="fld">Daily protein target (g)</label><input type="text" inputmode="numeric" id="gProtein" value="${g.protein_target_g ?? ''}" placeholder="optional, e.g. 160"></div>
+        <div></div>
+      </div>
+      <label class="fld">Rest days</label>
+      <div class="chips" id="gRest">${WEEK_MON.map(d => `<label class="chip sm ${restDays().includes(d) ? 'sel' : ''}" style="cursor:pointer;position:relative"><input type="checkbox" value="${d}" ${restDays().includes(d) ? 'checked' : ''}
+        onchange="this.parentNode.classList.toggle('sel', this.checked)" style="position:absolute;opacity:0;width:1px;height:1px">${d.slice(0, 3)}</label>`).join('')}</div>
+      <p class="muted" style="margin:4px 0 0">Changing rest days re-plans the days ahead that you haven't logged yet. Past days stay as they are.</p>
       <label class="fld">Mounjaro dose history</label>
       <table>${ds.map(d => `<tr><td>${fmtDY(d.from)}</td><td class="num">${d.mg} mg</td>
         <td class="num"><button class="link" style="color:var(--bad);padding:0;font-size:13px" onclick="removeDose('${d.from}')">remove</button></td></tr>`).join('')}</table>
@@ -1569,7 +1655,7 @@ function renderSettings(){
       ${cfg ? '<button class="link" onclick="clearCfg()">Disconnect</button>' : ''}
     </div>
     <div class="card">
-      <h2>Apple Watch feed</h2>
+      <h2>Apple Watch &amp; Health feeds</h2>
       <p class="muted" style="margin:0 0 6px">Health Auto Export on the iPhone sends each Watch workout here. Set up once: Automations &gt; new &gt; REST API.</p>
       <table>
         <tr><td class="muted">URL</td><td style="word-break:break-all;font-size:12px">${cfg ? esc(cfg.url) : 'https://YOUR-PROJECT.supabase.co'}/rest/v1/rpc/ingest_hae</td></tr>
@@ -1577,14 +1663,14 @@ function renderSettings(){
         <tr><td class="muted">Data</td><td style="font-size:12px">Workouts only, JSON, export version 2, sync daily</td></tr>
       </table>
       <p class="muted" style="margin:8px 0 0">${workouts.length ? workouts.length + ' Watch workouts on file, latest ' + fmtD(latestWo) + '.' : 'No Watch workouts on file yet.'}</p>
-      <p style="font-size:13px;font-weight:700;margin:14px 0 4px">Automatic weigh-ins</p>
-      <p class="muted" style="margin:0 0 6px">A smart scale that writes to Apple Health can fill in your body weight. Add a second automation in Health Auto Export (needs the v11 upgrade run in Supabase first).</p>
+      <p style="font-size:13px;font-weight:700;margin:14px 0 4px">Apple Health: weigh-ins, steps, sleep, heart</p>
+      <p class="muted" style="margin:0 0 6px">A second automation in Health Auto Export sends a daily summary for the Stats panels, and fills in your weight from a smart scale. Needs the v19 upgrade run in Supabase first.</p>
       <table>
-        <tr><td class="muted">URL</td><td style="word-break:break-all;font-size:12px">${cfg ? esc(cfg.url) : 'https://YOUR-PROJECT.supabase.co'}/rest/v1/rpc/ingest_hae_metrics</td></tr>
+        <tr><td class="muted">URL</td><td style="word-break:break-all;font-size:12px">${cfg ? esc(cfg.url) : 'https://YOUR-PROJECT.supabase.co'}/rest/v1/rpc/ingest_hae_daily</td></tr>
         <tr><td class="muted">Headers</td><td style="font-size:12px">Same two as above</td></tr>
-        <tr><td class="muted">Data</td><td style="font-size:12px">Health Metrics, Weight &amp; Body Mass only, JSON, export version 2, time grouping Day, sync daily</td></tr>
+        <tr><td class="muted">Data</td><td style="font-size:12px">Health Metrics: Step Count, Active Energy, Apple Exercise Time, Resting Heart Rate, Heart Rate Variability, Sleep Analysis, Weight &amp; Body Mass. JSON, export version 2, time grouping Day, sync daily</td></tr>
       </table>
-      <p class="muted" style="margin:8px 0 0">It only fills days with no weight, so a weight you type always wins.</p>
+      <p class="muted" style="margin:8px 0 0">${health.length ? health.length + ' days of Apple Health on file, latest ' + fmtD(health[health.length - 1].date) + '.' : 'No Apple Health days on file yet.'} A weight you type always wins over the scale.</p>
     </div>
     <div class="card" id="chatgpt-coach-connect">
       <h2>Private ChatGPT coach</h2>
@@ -1631,6 +1717,11 @@ function readGoalForm(){
     if(!(lo >= 3 && hi <= 60 && lo <= hi)){ toast('Body fat should be between 3 and 60%'); return null; }
     g.body_fat = [lo, hi];
   }
+  if(raw('gProtein') === '') g.protein_target_g = null;
+  else { const pg = num('gProtein'); if(!(pg >= 30 && pg <= 400)){ toast('Protein target should be in grams, like 160'); return null; } g.protein_target_g = Math.round(pg); }
+  const rest = [...document.querySelectorAll('#gRest input:checked')].map(x => x.value);
+  if(rest.length > 4){ toast('Pick up to 4 rest days'); return null; }
+  g.rest_days = rest;
   const hr = num('gMaxHr');
   if(!(hr >= 100 && hr <= 230)){ toast('Max heart rate should be between 100 and 230'); return null; }
   g.max_hr = Math.round(hr);
@@ -1644,7 +1735,37 @@ function commitGoals(g, msg){
   render(true);
   if(cfg) sync();
 }
-function saveGoals(){ const g = readGoalForm(); if(g) commitGoals(g); }
+function saveGoals(){
+  const g = readGoalForm(); if(!g) return;
+  const before = restDays().join();
+  commitGoals(g);
+  if(restDays().join() !== before){ const n = replanFuture(); toast(n ? 'Goals saved. ' + n + ' days ahead re-planned' : 'Goals saved', 2500); }
+}
+// Re-plan the days after today that hold nothing yet, using the current rest days. The
+// rotation carries on from the last training day on or before today.
+const WEEK_MON = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+function replanFuture(){
+  const t = todayStr(), sorted = [...rows].sort((a,b) => a.date < b.date ? -1 : 1);
+  let rot = 0;
+  for(let i = sorted.length - 1; i >= 0; i--){
+    if(sorted[i].date > t) continue;
+    const idx = ROT.indexOf(sorted[i].focus); if(idx >= 0){ rot = (idx + 1) % 3; break; }
+  }
+  let n = 0;
+  for(const r of sorted){
+    if(r.date <= t) continue;
+    const untouched = r.status === 'Planned' && r.body_weight == null && !r.notes && r.top_set == null && !(Array.isArray(r.tags) && r.tags.length);
+    if(!untouched){ const idx = ROT.indexOf(r.trained_as || r.focus); if(idx >= 0) rot = (idx + 1) % 3; continue; }
+    const focus = restDays().includes(r.day) ? 'Rest & Recover' : ROT[rot];
+    if(focus !== 'Rest & Recover') rot = (rot + 1) % 3;
+    if(r.focus !== focus){
+      r.focus = focus; r.trained_as = focus; r.target_muscles = MUSCLES[focus];
+      r.updated_at = new Date().toISOString(); dirty.add(r.date); n++;
+    }
+  }
+  if(n){ persist(); scheduleSync(); render(true); }
+  return n;
+}
 function addDose(){
   const g = readGoalForm(); if(!g) return;
   const mg = parseFloat(String(document.getElementById('gDoseMg').value).replace(/,/g, '.'));
@@ -1771,9 +1892,44 @@ function welcomeHTML(){
     ${w ? `<div class="wplate rise" style="animation-delay:.15s">${plate}</div>` : ''}
     ${chips.length ? `<div class="wchips rise" style="animation-delay:.25s;grid-template-columns:repeat(${chips.length},minmax(0,1fr))">${chips.map(([v, l]) =>
       `<div class="wchip"><b>${v}</b><small>${l}</small></div>`).join('')}</div>` : ''}
+    ${shotHTML(t)}
+    ${r ? `<div class="wweigh rise" style="animation-delay:.3s"><label for="wkg">Today's weigh-in</label>
+      <div class="wkgrow"><input id="wkg" type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done"
+        placeholder="${w ? 'last ' + w.current.toFixed(1) : 'e.g. 85.2'}" value="${r.body_weight ?? ''}"><span>kg</span></div></div>` : ''}
     ${today}
     <button class="wgo rise" id="wgo" style="animation-delay:.45s">LET'S GO <span aria-hidden="true">→</span></button>
   </div>`;
+}
+// Shot day is a week on from the last logged shot (or from the start date before any are logged).
+function shotDay(t){
+  if(!goals.mj_start || goals.mj_start > t) return null;
+  const inj = (goals.injections || []).map(i => i.date).filter(d => d <= t).sort();
+  const ref = inj.length ? inj[inj.length - 1] : goals.mj_start;
+  if(new Date(ref + 'T12:00:00').getDay() !== new Date(t + 'T12:00:00').getDay()) return null;
+  const dose = currentDose(t);
+  return { mg: dose ? dose.mg : null, done: inj.includes(t) };
+}
+function shotHTML(t){
+  const s = shotDay(t);
+  if(!s) return '';
+  return `<div class="wshot rise" style="animation-delay:.28s"><div><small>SHOT DAY</small><b>${s.mg ? s.mg + ' mg Mounjaro' : 'Mounjaro'}</b></div>
+    ${s.done ? '<span class="wdone">Logged &#10003;</span>' : '<button class="wsmall" id="wshotbtn">Log shot</button>'}</div>`;
+}
+function logShotToday(){
+  const t = todayStr(), dose = currentDose(t);
+  if(!dose) return;
+  const list = (goals.injections || []).filter(i => i.date !== t).concat([{ date: t, mg: dose.mg }]).sort((a,b) => a.date < b.date ? -1 : 1);
+  commitGoals({ ...goals, injections: list }, 'Shot logged: ' + dose.mg + ' mg');
+}
+// The welcome weigh-in saves to today's row; false keeps the page open to fix a typo.
+function saveWelcomeWeight(v){
+  const raw = String(v == null ? '' : v).trim(), r = byDate(todayStr());
+  if(raw === '' || !r) return true;
+  const n = parseKg(raw);
+  if(isNaN(n) || n < 30 || n > 250){ toast('Enter a weight like 85.2'); return false; }
+  const kg = Math.round(n * 10) / 10;
+  if(r.body_weight !== kg){ setField(todayStr(), 'body_weight', kg); toast('Saved ' + kg + ' kg'); }
+  return true;
 }
 // Chalk dust drifting up through the spotlight. Still, with fewer specks, under reduced motion.
 function startDust(canvas){
@@ -1819,7 +1975,12 @@ function showWelcome(){
   el.scrollTop = 0;
   stopDust = startDust(el.querySelector('#wdust'));
   animateWelcome(el);
-  el.querySelector('#wgo').onclick = () => {
+  const go = el.querySelector('#wgo'), kg = el.querySelector('#wkg'), shotBtn = el.querySelector('#wshotbtn');
+  if(shotBtn) shotBtn.onclick = () => { logShotToday(); shotBtn.outerHTML = '<span class="wdone">Logged &#10003;</span>'; };
+  if(kg) kg.onkeydown = e => { if(e.key === 'Enter'){ e.preventDefault(); go.click(); } };
+  go.onclick = () => {
+    if(kg && !saveWelcomeWeight(kg.value)) return;
+    render(true);
     el.classList.add('out');
     setTimeout(() => { el.classList.add('hide'); if(stopDust){ stopDust(); stopDust = null; } }, 460);
   };
