@@ -1,4 +1,4 @@
-const CACHE = 'arnold-split-v12';
+const CACHE = 'arnold-split-v13';
 const SHELL = [
   './',
   './index.html',
@@ -54,7 +54,7 @@ self.addEventListener('fetch', e => {
   e.respondWith(
     caches.match(e.request).then(hit => {
       const fetched = fetch(e.request).then(res => {
-        if (res && res.ok && (url.origin === location.origin || url.hostname === 'cdn.jsdelivr.net')) {
+        if (res && res.ok && (url.origin === location.origin || ['cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname))) {
           const copy = res.clone();
           caches.open(CACHE).then(c => c.put(e.request, copy));
         }

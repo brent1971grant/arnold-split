@@ -12,6 +12,8 @@
 <meta name="apple-mobile-web-app-title" content="Arnold">
 <meta name="theme-color" content="#16324F">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap">
 <style>
   :root{
     --navy:#16324F; --ink:#1c2733; --muted:#6b7a89; --bg:#f4f6f8; --card:#ffffff;
@@ -85,18 +87,43 @@
   .toast.show{opacity:.95;}
   button.link{background:none;border:none;color:var(--cb-d);font-size:14px;font-weight:600;padding:6px 0;}
   button.primary{width:100%; padding:12px; border:none; border-radius:10px; background:var(--navy); color:#fff; font-size:15px; font-weight:700; margin-top:10px;}
-  /* Welcome: a once-a-day greeting over the app. Fades on its own, or on a tap. */
-  #welcome{position:fixed; inset:0; z-index:30; background:var(--navy); color:#fff; display:flex; flex-direction:column; justify-content:center;
-    padding:calc(24px + env(safe-area-inset-top)) 32px calc(24px + env(safe-area-inset-bottom)); transition:opacity .6s ease; cursor:pointer;}
+  /* Welcome: once a day, "the gym at night". Spotlight and chalk dust behind, progress drawn
+     as a weight plate, waits for LET'S GO. Tap the ARNOLD SPLIT title to see it again. */
+  #welcome{--w-bg:#0a141f; --w-ink:#f4efe4; --w-dim:rgba(244,239,228,.62); --w-gold:#e5b04a; --w-steel:#1c2b3a; --w-line:rgba(244,239,228,.12);
+    --w-display:"Anton","HelveticaNeue-CondensedBlack","Arial Narrow",sans-serif;
+    position:fixed; inset:0; z-index:30; color:var(--w-ink); overflow-y:auto;
+    background:radial-gradient(120% 65% at 88% -8%, rgba(229,176,74,.30), transparent 58%),
+      radial-gradient(90% 55% at 0% 105%, rgba(46,134,193,.20), transparent 62%), var(--w-bg);
+    transition:opacity .45s ease, transform .45s ease;}
   #welcome.hide{display:none;}
-  #welcome.out{opacity:0; pointer-events:none;}
-  #welcome .wm{font-size:13px; font-weight:800; letter-spacing:3px; opacity:.6;}
-  #welcome h2{font-size:34px; line-height:1.1; text-transform:none; letter-spacing:0; color:#fff; margin:14px 0 28px; font-weight:800;}
-  #welcome .wl{font-size:17px; line-height:1.5; opacity:.92;}
-  #welcome .wl + .wl{margin-top:14px;}
-  #welcome .wl b{color:#f2c46a;}
-  #welcome .wskip{position:absolute; left:0; right:0; bottom:calc(24px + env(safe-area-inset-bottom)); text-align:center; font-size:12px; opacity:.5;}
-  @media (prefers-reduced-motion: reduce){ #welcome{transition:none;} }
+  #welcome.out{opacity:0; transform:translateY(-3%); pointer-events:none;}
+  #welcome canvas{position:fixed; inset:0; width:100%; height:100%; pointer-events:none;}
+  #welcome .wbody{position:relative; min-height:100%; display:flex; flex-direction:column; gap:18px;
+    padding:calc(18px + env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));}
+  #welcome .wtop{display:flex; justify-content:space-between; font-size:11px; font-weight:800; letter-spacing:3px; color:var(--w-dim);}
+  #welcome h2{font:400 clamp(44px,13vw,60px)/.92 var(--w-display); text-transform:uppercase; letter-spacing:.5px; color:var(--w-ink); margin:6px 0 0;}
+  #welcome h2 span{color:var(--w-gold); display:block;}
+  #welcome .wplate{align-self:center; width:min(250px,68vw); aspect-ratio:1; max-width:100%;}
+  #welcome .wplate svg{width:100%; height:100%; overflow:visible;}
+  #welcome .wnum{font:400 64px/1 var(--w-display);}
+  #welcome .wchips{display:grid; grid-template-columns:repeat(auto-fit,minmax(0,1fr)); gap:10px;}
+  #welcome .wchip{border-top:2px solid var(--w-gold); padding-top:8px;}
+  #welcome .wchip b{display:block; font:400 30px/1 var(--w-display);}
+  #welcome .wchip small{display:block; margin-top:4px; font-size:10px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase; color:var(--w-dim);}
+  #welcome .wtoday{background:rgba(255,255,255,.05); border:1px solid var(--w-line); border-left:4px solid var(--w-gold); border-radius:12px; padding:12px 14px;}
+  #welcome .wtoday small{font-size:10px; font-weight:800; letter-spacing:2px; color:var(--w-dim);}
+  #welcome .wtoday b{display:block; font:400 28px/1.1 var(--w-display); text-transform:uppercase; letter-spacing:.5px; margin-top:2px;}
+  #welcome .wtoday p{margin:4px 0 0; font-size:13px; line-height:1.45; color:var(--w-dim);}
+  #welcome .wtoday p em{font-style:normal; color:var(--w-gold); font-weight:700;}
+  #welcome .wgo{margin-top:auto; width:100%; min-height:58px; border:none; border-radius:14px; background:var(--w-gold); color:#0a141f;
+    font:400 24px/1 var(--w-display); letter-spacing:2px; display:flex; align-items:center; justify-content:center; gap:10px; cursor:pointer;
+    box-shadow:0 10px 30px rgba(229,176,74,.25);}
+  #welcome .wgo:active{transform:scale(.98);}
+  #welcome .wgo:focus-visible{outline:3px solid var(--w-ink); outline-offset:3px;}
+  #welcome .rise{animation:wrise .7s cubic-bezier(.2,.8,.2,1) both;}
+  @keyframes wrise{from{opacity:0; transform:translateY(14px);} to{opacity:1; transform:none;}}
+  header h1{cursor:pointer;}
+  @media (prefers-reduced-motion: reduce){ #welcome, #welcome .rise{transition:none; animation:none;} }
 </style>
 </head>
 <body>
@@ -129,7 +156,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 12;
+const APP_VERSION = 13;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -1342,27 +1369,115 @@ function render(force){
   else renderSettings();
 }
 /* ---------- Welcome (first open each day) ---------- */
-// The app has already rendered underneath, so the greeting fades straight into Today.
+// The app has already rendered underneath; the welcome waits for LET'S GO.
+const shortDate = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 function welcomeHTML(){
-  const t = todayStr(), h = new Date().getHours();
+  const t = todayStr(), now = new Date(), h = now.getHours();
   const hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
-  const lines = [];
-  const r = byDate(t);
-  if(r) lines.push(`Today: <b>${esc(r.focus)}</b><br>Week ${r.week} &middot; Block ${blockOf(r.week)}`);
+  const dateTxt = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).toUpperCase();
   const w = computeMetrics(rows, t, goals).wm;
-  if(w){
-    const off = goals.mj_start_kg - w.current, left = w.current - goals.target_kg, parts = [];
-    if(off > 0) parts.push(`<b>${off.toFixed(1)} kg</b> off`);
-    if(left > 0) parts.push(`${left.toFixed(1)} to go`);
-    if(parts.length) lines.push(parts.join(' &middot; '));
+  const start = goals.mj_start_kg, target = goals.target_kg;
+  const off = w ? Math.max(0, start - w.current) : 0;
+  const pct = w && start > target ? Math.max(0, Math.min(1, (start - w.current) / (start - target))) : 0;
+
+  // Progress drawn as a weight plate: gold arc from 0 to the share of 97 -> 80 kg done.
+  const R = 96, C = 2 * Math.PI * R;
+  const bolts = [...Array(8)].map((_, i) => { const a = (i + .5) * Math.PI / 4;
+    return `<circle cx="${(130 + 74 * Math.cos(a)).toFixed(1)}" cy="${(130 + 74 * Math.sin(a)).toFixed(1)}" r="2.6" style="fill:rgba(244,239,228,.14)"/>`; }).join('');
+  const rim = `${start} KG START  •  GOAL ${target} KG${goals.target_date ? '  •  ' + shortDate(goals.target_date).toUpperCase() : ''}`;
+  const plate = `<svg viewBox="0 0 260 260" role="img" aria-label="${off.toFixed(1)} kg off, ${Math.round(pct * 100)}% of the way from ${start} to ${target} kg">
+    <defs><radialGradient id="wpg" cx="38%" cy="32%" r="78%"><stop offset="0" stop-color="#2b3f55"/><stop offset="1" stop-color="#0c1722"/></radialGradient>
+      <path id="wtp" d="M130,130 m-113,0 a113,113 0 1,1 226,0 a113,113 0 1,1 -226,0"/></defs>
+    <circle cx="130" cy="130" r="124" style="fill:url(#wpg);stroke:rgba(244,239,228,.18);stroke-width:1.5"/>
+    <text style="font-size:9.5px;font-weight:700;letter-spacing:2.2px;fill:rgba(244,239,228,.55)"><textPath href="#wtp" startOffset="4%">${rim}</textPath></text>
+    <circle cx="130" cy="130" r="${R}" style="fill:none;stroke:rgba(244,239,228,.08);stroke-width:16"/>
+    <circle id="warc" cx="130" cy="130" r="${R}" transform="rotate(-90 130 130)" data-to="${(C * (1 - pct)).toFixed(1)}"
+      style="fill:none;stroke:var(--w-gold);stroke-width:16;stroke-linecap:round;stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)}"/>
+    <circle cx="130" cy="130" r="80" style="fill:rgba(10,20,31,.55)"/>${bolts}
+    <text id="wnum" class="wnum" x="130" y="140" text-anchor="middle" data-to="${off.toFixed(1)}" style="fill:var(--w-ink)">0.0</text>
+    <text x="130" y="164" text-anchor="middle" style="font-size:10px;font-weight:800;letter-spacing:2.5px;fill:var(--w-gold)">KG OFF · ${Math.round(pct * 100)}%</text>
+  </svg>`;
+
+  const chips = [];
+  if(w) chips.push(w.current > target ? [(w.current - target).toFixed(1), 'kg to go'] : ['✓', 'goal reached']);
+  if(goals.target_date && goals.target_date > t)
+    chips.push([Math.round((Date.parse(goals.target_date) - Date.parse(t)) / 86400000), 'days to ' + shortDate(goals.target_date)]);
+  if(goals.mj_start && goals.mj_start <= t)
+    chips.push([Math.floor((Date.parse(t) - Date.parse(goals.mj_start)) / (7 * 86400000)) + 1, 'Mounjaro week']);
+
+  let today = '';
+  const r = byDate(t);
+  if(r){
+    const type = r.trained_as || r.focus, lift = TOP_LIFT[type];
+    let detail = 'Recovery day. This is when the muscle gets built.';
+    if(lift){
+      const prev = lastTopSet(type, t), range = repRange(type);
+      detail = 'First lift: ' + esc(lift);
+      if(prev) detail += `<br>Last time ${prev.top_set} kg${prev.reps ? ' × ' + prev.reps : ''}`
+        + (prev.reps && range && prev.reps >= range.max ? ' · <em>go heavier today</em>' : '');
+    }
+    today = `<div class="wtoday rise" style="animation-delay:.35s;border-left-color:${DCOLORS[r.focus]}">
+      <small>TODAY · WEEK ${r.week} · BLOCK ${blockOf(r.week)}</small><b>${esc(r.focus)}</b><p>${detail}</p></div>`;
   }
-  if(goals.target_date && goals.target_date > t){
-    const days = Math.round((Date.parse(goals.target_date) - Date.parse(t)) / 86400000);
-    const when = new Date(goals.target_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    lines.push(`${days} day${days === 1 ? '' : 's'} to ${when}`);
-  }
-  return `<div class="wm">ARNOLD SPLIT</div><h2>${hello}, Brent</h2>`
-    + lines.map(l => `<div class="wl">${l}</div>`).join('') + '<div class="wskip">Tap to start</div>';
+
+  return `<canvas id="wdust" aria-hidden="true"></canvas><div class="wbody">
+    <div class="wtop rise"><span>ARNOLD SPLIT</span><span>${dateTxt}</span></div>
+    <h2 class="rise" style="animation-delay:.05s">${hello},<span>Brent</span></h2>
+    ${w ? `<div class="wplate rise" style="animation-delay:.15s">${plate}</div>` : ''}
+    ${chips.length ? `<div class="wchips rise" style="animation-delay:.25s;grid-template-columns:repeat(${chips.length},minmax(0,1fr))">${chips.map(([v, l]) =>
+      `<div class="wchip"><b>${v}</b><small>${l}</small></div>`).join('')}</div>` : ''}
+    ${today}
+    <button class="wgo rise" id="wgo" style="animation-delay:.45s">LET'S GO <span aria-hidden="true">→</span></button>
+  </div>`;
+}
+// Chalk dust drifting up through the spotlight. Still, with fewer specks, under reduced motion.
+function startDust(canvas){
+  const ctx = canvas && canvas.getContext('2d');
+  if(!ctx) return () => {};
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches, dpr = Math.min(2, window.devicePixelRatio || 1);
+  let W = 0, H = 0, raf = 0, alive = true;
+  const size = () => { W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * dpr; canvas.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  size(); window.addEventListener('resize', size);
+  const ps = [...Array(still ? 24 : 60)].map(() => ({ x: Math.random() * W, y: Math.random() * H,
+    r: .4 + Math.random() * 1.8, v: .08 + Math.random() * .35, a: .05 + Math.random() * .25, s: Math.random() * 6.28 }));
+  const frame = () => {
+    ctx.clearRect(0, 0, W, H);
+    for(const p of ps){
+      if(!still){ p.y -= p.v; p.s += .01; p.x += Math.sin(p.s) * .15; if(p.y < -5){ p.y = H + 5; p.x = Math.random() * W; } }
+      const glow = Math.max(0, 1 - Math.hypot(p.x - W * .88, p.y + H * .08) / (H * .75));
+      ctx.globalAlpha = Math.min(.6, p.a + glow * .35);
+      ctx.fillStyle = glow > .3 ? '#f6dca3' : '#f4efe4';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.283); ctx.fill();
+    }
+    if(alive && !still) raf = requestAnimationFrame(frame);
+  };
+  frame();
+  return () => { alive = false; cancelAnimationFrame(raf); window.removeEventListener('resize', size); };
+}
+// The plate fills and the kg-off number counts up together.
+function animateWelcome(el){
+  const arc = el.querySelector('#warc'), num = el.querySelector('#wnum');
+  if(!arc || !num) return;
+  const C = parseFloat(arc.style.strokeDasharray), toArc = +arc.dataset.to, toNum = +num.dataset.to;
+  const set = k => { arc.style.strokeDashoffset = C - (C - toArc) * k; num.textContent = (toNum * k).toFixed(1); };
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){ set(1); return; }
+  const t0 = performance.now() + 250, dur = 1400;
+  const step = now => { const k = Math.max(0, Math.min(1, (now - t0) / dur)); set(1 - Math.pow(1 - k, 3)); if(k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+let stopDust = null;
+function showWelcome(){
+  const el = document.getElementById('welcome');
+  if(stopDust) stopDust();
+  el.innerHTML = welcomeHTML();
+  el.classList.remove('hide', 'out');
+  el.scrollTop = 0;
+  stopDust = startDust(el.querySelector('#wdust'));
+  animateWelcome(el);
+  el.querySelector('#wgo').onclick = () => {
+    el.classList.add('out');
+    setTimeout(() => { el.classList.add('hide'); if(stopDust){ stopDust(); stopDust = null; } }, 460);
+  };
 }
 function maybeWelcome(){
   const t = todayStr();
@@ -1370,13 +1485,10 @@ function maybeWelcome(){
   try{ seen = localStorage.getItem('as_welcome'); }catch(e){}
   if(seen === t || !rows.length) return;
   try{ localStorage.setItem('as_welcome', t); }catch(e){}
-  const el = document.getElementById('welcome');
-  el.innerHTML = welcomeHTML();
-  el.classList.remove('hide', 'out');
-  const done = () => { clearTimeout(el._t); el.classList.add('out'); setTimeout(() => el.classList.add('hide'), 650); };
-  el.onclick = done;
-  el._t = setTimeout(done, 2200);
+  showWelcome();
 }
+// Tap the ARNOLD SPLIT title to see the welcome again.
+document.querySelector('header h1').addEventListener('click', () => { if(rows.length) showWelcome(); });
 
 extendScheduleIfNeeded();
 render();
