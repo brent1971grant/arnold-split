@@ -85,6 +85,18 @@
   .toast.show{opacity:.95;}
   button.link{background:none;border:none;color:var(--cb-d);font-size:14px;font-weight:600;padding:6px 0;}
   button.primary{width:100%; padding:12px; border:none; border-radius:10px; background:var(--navy); color:#fff; font-size:15px; font-weight:700; margin-top:10px;}
+  /* Welcome: a once-a-day greeting over the app. Fades on its own, or on a tap. */
+  #welcome{position:fixed; inset:0; z-index:30; background:var(--navy); color:#fff; display:flex; flex-direction:column; justify-content:center;
+    padding:calc(24px + env(safe-area-inset-top)) 32px calc(24px + env(safe-area-inset-bottom)); transition:opacity .6s ease; cursor:pointer;}
+  #welcome.hide{display:none;}
+  #welcome.out{opacity:0; pointer-events:none;}
+  #welcome .wm{font-size:13px; font-weight:800; letter-spacing:3px; opacity:.6;}
+  #welcome h2{font-size:34px; line-height:1.1; text-transform:none; letter-spacing:0; color:#fff; margin:14px 0 28px; font-weight:800;}
+  #welcome .wl{font-size:17px; line-height:1.5; opacity:.92;}
+  #welcome .wl + .wl{margin-top:14px;}
+  #welcome .wl b{color:#f2c46a;}
+  #welcome .wskip{position:absolute; left:0; right:0; bottom:calc(24px + env(safe-area-inset-bottom)); text-align:center; font-size:12px; opacity:.5;}
+  @media (prefers-reduced-motion: reduce){ #welcome{transition:none;} }
 </style>
 </head>
 <body>
@@ -107,6 +119,7 @@
   <button data-v="settings"><span class="ic">&#9881;&#65039;</span>Setup</button>
 </nav>
 <div class="toast" id="toast"></div>
+<div id="welcome" class="hide" aria-live="polite"></div>
 
 <script>
 /* ====================== DATA ====================== */
@@ -116,7 +129,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 11;
+const APP_VERSION = 12;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -1328,14 +1341,53 @@ function render(force){
   else if(cur === 'guide') renderGuide();
   else renderSettings();
 }
+/* ---------- Welcome (first open each day) ---------- */
+// The app has already rendered underneath, so the greeting fades straight into Today.
+function welcomeHTML(){
+  const t = todayStr(), h = new Date().getHours();
+  const hello = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+  const lines = [];
+  const r = byDate(t);
+  if(r) lines.push(`Today: <b>${esc(r.focus)}</b><br>Week ${r.week} &middot; Block ${blockOf(r.week)}`);
+  const w = computeMetrics(rows, t, goals).wm;
+  if(w){
+    const off = goals.mj_start_kg - w.current, left = w.current - goals.target_kg, parts = [];
+    if(off > 0) parts.push(`<b>${off.toFixed(1)} kg</b> off`);
+    if(left > 0) parts.push(`${left.toFixed(1)} to go`);
+    if(parts.length) lines.push(parts.join(' &middot; '));
+  }
+  if(goals.target_date && goals.target_date > t){
+    const days = Math.round((Date.parse(goals.target_date) - Date.parse(t)) / 86400000);
+    const when = new Date(goals.target_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    lines.push(`${days} day${days === 1 ? '' : 's'} to ${when}`);
+  }
+  return `<div class="wm">ARNOLD SPLIT</div><h2>${hello}, Brent</h2>`
+    + lines.map(l => `<div class="wl">${l}</div>`).join('') + '<div class="wskip">Tap to start</div>';
+}
+function maybeWelcome(){
+  const t = todayStr();
+  let seen = null;
+  try{ seen = localStorage.getItem('as_welcome'); }catch(e){}
+  if(seen === t || !rows.length) return;
+  try{ localStorage.setItem('as_welcome', t); }catch(e){}
+  const el = document.getElementById('welcome');
+  el.innerHTML = welcomeHTML();
+  el.classList.remove('hide', 'out');
+  const done = () => { clearTimeout(el._t); el.classList.add('out'); setTimeout(() => el.classList.add('hide'), 650); };
+  el.onclick = done;
+  el._t = setTimeout(done, 2200);
+}
+
 extendScheduleIfNeeded();
 render();
+maybeWelcome();
 if(cfg) sync();
 // A home-screen app can stay "open" for weeks, so top the schedule up and re-check
 // the date every time it returns to the foreground, not only on a cold start.
 let lastSeenDay = todayStr();
 document.addEventListener('visibilitychange', () => {
   if(document.hidden) return;
+  maybeWelcome();
   const added = extendScheduleIfNeeded();
   if(added || todayStr() !== lastSeenDay){ lastSeenDay = todayStr(); render(true); }
   if(cfg) sync();
