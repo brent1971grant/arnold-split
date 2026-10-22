@@ -13,7 +13,7 @@
 <meta name="theme-color" content="#16324F">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
   :root{
     --navy:#16324F; --ink:#1c2733; --muted:#6b7a89; --bg:#f4f6f8; --card:#ffffff;
@@ -87,6 +87,41 @@
   .toast.show{opacity:.95;}
   button.link{background:none;border:none;color:var(--cb-d);font-size:14px;font-weight:600;padding:6px 0;}
   button.primary{width:100%; padding:12px; border:none; border-radius:10px; background:var(--navy); color:#fff; font-size:15px; font-weight:700; margin-top:10px;}
+  /* Stats, in the style of Brent's Training Record dashboard: navy journey band, brass accents,
+     condensed display numerals, mono labels. */
+  #view-stats{--brass:#a77a22; --disp:"Big Shoulders Display","Oswald","Arial Narrow",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;}
+  #view-stats .card h2{font:700 19px/1.1 var(--disp); text-transform:uppercase; letter-spacing:.03em; color:var(--ink); margin:2px 0 10px;}
+  #view-stats .stat .v{font-family:var(--disp); font-weight:800; font-size:30px;}
+  #view-stats .eyebrow{font:500 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+  .jband{background:var(--navy); color:#fff; border-radius:14px; padding:18px; margin-bottom:12px; display:grid; gap:12px;}
+  #view-stats .jband .eyebrow{color:rgba(255,255,255,.7);}
+  .jscale{display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px clamp(6px, 2.4vw, 14px);}
+  .jscale > div{display:grid; gap:3px;}
+  .jscale b{font:800 clamp(28px, 8.2vw, 42px)/.9 var(--disp);}
+  .jscale span{font:500 9px/1.2 var(--mono); letter-spacing:.08em; text-transform:uppercase; opacity:.75; white-space:nowrap;}
+  .jscale i{font:700 clamp(16px, 5vw, 22px)/1 var(--disp); font-style:normal; opacity:.45; padding-bottom:12px;}
+  .jscale .gold b{color:#f2c46a;}
+  .jscale .togo{padding-left:clamp(6px, 2.4vw, 12px); border-left:1px solid rgba(255,255,255,.25);}
+  .jbar{height:10px; background:rgba(255,255,255,.16); border-radius:5px; overflow:hidden;}
+  .jbar i{display:block; height:100%; background:linear-gradient(90deg,#d9a845,#f2c46a); border-radius:5px;}
+  .jlabels{display:flex; justify-content:space-between; gap:8px; font:500 10.5px/1.2 var(--mono); opacity:.8;}
+  .jmj{font:500 12px/1.4 var(--mono); color:rgba(255,255,255,.85);}
+  .jmj b{color:#f2c46a; font-weight:500;}
+  .tiles{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px;}
+  .tile{background:var(--card); border-radius:14px; padding:12px 14px; box-shadow:0 1px 3px rgba(0,0,0,.07); display:grid; gap:4px; min-width:0;}
+  .tile b{font:800 32px/1 var(--disp);}
+  .tile small{font-size:11.5px; color:var(--muted);}
+  .pbs{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px;}
+  .pbs.three{grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px;}
+  .pb{border-top:3px solid var(--brass); padding-top:7px; display:grid; gap:2px; align-content:start; min-width:0;}
+  .pb b{font:800 22px/1.1 var(--disp);}
+  .pb span{font-size:11.5px; line-height:1.35; color:var(--muted);}
+  .doses{display:flex; height:30px; border-radius:6px; overflow:hidden; gap:2px; margin:4px 0 6px;}
+  .doses > div{display:flex; align-items:center; justify-content:center; padding:0 4px; font:500 11px/1 var(--mono); color:#fff; white-space:nowrap; overflow:hidden; min-width:54px;}
+  .doses > div.plan{color:var(--ink); background:repeating-linear-gradient(135deg,#e8ecf0 0 6px,transparent 6px 12px); border:1px dashed var(--brass);}
+  .dlegend{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font:500 10.5px/1.2 var(--mono); color:var(--muted); margin-bottom:4px;}
+  .sec-h{font:500 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:22px 4px 10px;}
+  .chip-s{display:inline-block; font:500 10.5px/1.2 var(--mono); padding:4px 6px; border-radius:4px; white-space:nowrap;}
   /* Welcome: once a day, "the gym at night". Spotlight and chalk dust behind, progress drawn
      as a weight plate, waits for LET'S GO. Tap the ARNOLD SPLIT title to see it again. */
   #welcome{--w-bg:#0a141f; --w-ink:#f4efe4; --w-dim:rgba(244,239,228,.62); --w-gold:#e5b04a; --w-steel:#1c2b3a; --w-line:rgba(244,239,228,.12);
@@ -156,7 +191,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 15;
+const APP_VERSION = 16;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -914,7 +949,7 @@ function renderPlan(){
 }
 
 /* ---------- Stats ---------- */
-let chart = null, swChart = null;
+let chart = null, swChart = null, sessChart = null;
 let wRange = 30; // days shown on the weight chart; 0 = all
 let jQ = '', jTag = '';
 function setWRange(n){ wRange = n; renderStats(); }
@@ -1023,18 +1058,27 @@ function watchCard(){
   </div>`;
 }
 function mjCard(m){
-  const dose = currentDose(todayStr());
+  const t = todayStr(), dose = currentDose(t);
   const ds = [...(goals.doses || [])].sort((a,b) => a.from < b.from ? -1 : 1);
   const inj = [...(goals.injections || [])].sort((a,b) => a.date < b.date ? 1 : -1);
-  const since = m.mj.lastShot ? Math.round((Date.parse(todayStr()) - Date.parse(m.mj.lastShot)) / 86400000) : null;
+  const since = m.mj.lastShot ? Math.round((Date.parse(t) - Date.parse(m.mj.lastShot)) / 86400000) : null;
+  // Dose timeline in weeks: each dose runs until the next begins, then a hatched plan block
+  // at the current dose up to the goal date.
+  const wk = d => Math.floor((Date.parse(d) - Date.parse(goals.mj_start)) / (7 * 86400000));
+  const weeks = goals.mj_start && goals.mj_start <= t ? wk(t) + 1 : 0;
+  const past = ds.filter(d => d.from <= t);
+  const spans = weeks ? past.map((d, i) => ({ mg: d.mg,
+    weeks: Math.max(1, (i + 1 < past.length ? wk(past[i + 1].from) : wk(t) + 1) - Math.max(0, wk(d.from))) })) : [];
+  const planWeeks = weeks && dose && goals.target_date && goals.target_date > t ? Math.max(0, wk(goals.target_date) - wk(t)) : 0;
+  const cols = ['var(--navy)', 'var(--brass)', 'var(--good)'];
+  const timeline = spans.length ? `<div class="doses" role="img" aria-label="${spans.map(s => s.mg + ' mg for ' + s.weeks + ' weeks').join(', ')}">
+      ${spans.map((s, i) => `<div style="flex:${s.weeks} 1 0;background:${cols[i % 3]}">${s.mg} mg</div>`).join('')}
+      ${planWeeks ? `<div class="plan" style="flex:${planWeeks} 1 0">Plan</div>` : ''}</div>
+    <div class="dlegend">${spans.map(s => `<span>${s.mg} mg &middot; ${s.weeks} wk</span>`).join('')}${planWeeks ? `<span>Plan: ${dose.mg} mg to ${shortDate(goals.target_date)} &middot; ${planWeeks} wk</span>` : ''}</div>` : '';
   return `<div class="card">
     <h2>Mounjaro${dose ? ' &middot; ' + dose.mg + ' mg weekly' : ''}</h2>
-    <div class="grid2">
-      <div class="stat"><div class="v">${m.mj.shots}</div><div class="l">Shots since ${fmtD(goals.mj_start)}${m.mj.logged ? '' : ' (est.)'}</div></div>
-      <div class="stat"><div class="v">${m.mj.down != null ? m.mj.down.toFixed(1) : '–'}</div><div class="l">Kg down (from ${goals.mj_start_kg})</div></div>
-    </div>
-    ${m.mj.journey != null ? `<div class="bar"><div style="width:${Math.max(0, Math.min(100, m.mj.journey*100))}%"></div></div>
-    <p class="muted" style="text-align:center;margin:6px 0 0">${Math.round(m.mj.journey*100)}% of the journey from ${goals.mj_start_kg} to ${goals.target_kg} kg</p>` : ''}
+    <p class="muted" style="margin:0 0 8px">${weeks ? 'Week ' + weeks + ' &middot; ' : ''}${m.mj.shots} shots since ${fmtDY(goals.mj_start)}${m.mj.logged ? '' : ' (est.)'}${m.mj.down != null && m.mj.down > 0 ? ' &middot; ' + m.mj.down.toFixed(1) + ' kg down from ' + goals.mj_start_kg : ''}</p>
+    ${timeline}
     <label class="fld">Log a shot</label>
     <div class="row2">
       <div><input type="date" id="injDate" value="${todayStr()}"></div>
@@ -1081,27 +1125,132 @@ function journalCard(){
     <p class="muted" style="margin:8px 0 0">Newest week open. Tap a tag to filter, a week to expand, an entry to edit that day.</p>
   </div>`;
 }
+/* ---------- Stats: dashboard sections ---------- */
+const doneSessions = () => rows.filter(r => r.status === 'Completed' && TYPES.includes(r.trained_as || r.focus) && r.date <= todayStr());
+function journeyBand(m){
+  const w = m.wm;
+  if(!w) return '';
+  const t = todayStr(), start = +goals.mj_start_kg, target = +goals.target_kg;
+  const off = Math.max(0, start - w.current), left = Math.max(0, w.current - target);
+  const pct = start > target ? Math.max(0, Math.min(1, (start - w.current) / (start - target))) : 0;
+  const lastW = m.weights[m.weights.length - 1];
+  const days = goals.target_date && goals.target_date > t ? Math.round((Date.parse(goals.target_date) - Date.parse(t)) / 86400000) : null;
+  const dose = currentDose(t);
+  const weeks = goals.mj_start && goals.mj_start <= t ? Math.floor((Date.parse(t) - Date.parse(goals.mj_start)) / (7 * 86400000)) + 1 : null;
+  return `<section class="jband" aria-label="Weight journey">
+    <div class="eyebrow">Arnold split &middot; Mounjaro journey</div>
+    <div class="jscale">
+      <div><b>${start.toFixed(1)}</b><span>Start kg</span></div><i>&rarr;</i>
+      <div><b>${w.current.toFixed(1)}</b><span>Kg on ${shortDate(lastW.date)}</span></div><i>=</i>
+      <div class="gold"><b>${off.toFixed(1)}</b><span>Kg off</span></div>
+      ${left > 0 ? `<div class="togo"><b>${left.toFixed(1)}</b><span>Kg to go</span></div>` : ''}
+    </div>
+    <div class="jbar" role="img" aria-label="${Math.round(pct * 100)}% of the way from ${start} to ${target} kg"><i style="width:${(pct * 100).toFixed(1)}%"></i></div>
+    <div class="jlabels"><span>${Math.round(pct * 100)}% of the way</span><span>Goal ${target} kg${goals.target_date ? ' &middot; ' + shortDate(goals.target_date) : ''}${days != null ? ' &middot; ' + days + ' days' : ''}</span></div>
+    ${weeks ? `<div class="jmj">Week <b>${weeks}</b> on Mounjaro${dose ? ' &middot; <b>' + dose.mg + ' mg</b> weekly since ' + shortDate(dose.from) : ''}</div>` : ''}
+  </section>`;
+}
+// How many times a top set beat the best before it, across the three first lifts.
+function topSetRecords(){
+  let n = 0;
+  TYPES.forEach(type => {
+    let best = null;
+    rows.filter(r => r.top_set != null && (r.trained_as || r.focus) === type).sort((a,b) => a.date < b.date ? -1 : 1)
+      .forEach(r => { const v = +r.top_set; if(best != null && v > best) n++; if(best == null || v > best) best = v; });
+  });
+  return n;
+}
+function tilesStrip(m){
+  const mins = workouts.reduce((s, w) => s + (w.duration_min || 0), 0);
+  const lastW = m.weights[m.weights.length - 1];
+  return `<div class="tiles">
+    <div class="tile"><span class="eyebrow">Sessions done</span><b>${doneSessions().length}</b><small>since ${rows.length ? fmtDY(rows[0].date) : '–'}</small></div>
+    <div class="tile"><span class="eyebrow">Hours trained</span><b>${Math.round(mins / 60)}</b><small>Apple Watch workouts</small></div>
+    <div class="tile"><span class="eyebrow">Top-set records</span><b>${topSetRecords()}</b><small>Times you beat your best</small></div>
+    <div class="tile"><span class="eyebrow">Weigh-ins</span><b>${m.weights.length}</b><small>${lastW ? 'Latest ' + fmtD(lastW.date) : 'None yet'}</small></div>
+  </div>`;
+}
+function bodyCard(m){
+  const h = +goals.height_m, w = m.wm;
+  if(!h) return `<div class="card"><h2>BMI &amp; body composition</h2><p class="muted" style="margin:0">Add your height under Setup &rarr; Goals to see your BMI here, with your waist and body-fat estimate.</p></div>`;
+  const bmi = kg => (kg / (h * h)).toFixed(1);
+  const cells = [[bmi(goals.mj_start_kg), 'BMI at the ' + goals.mj_start_kg + ' kg start']];
+  if(w) cells.push([bmi(w.current), 'BMI now']);
+  cells.push([bmi(goals.target_kg), 'BMI at ' + goals.target_kg + ' kg']);
+  const bf = Array.isArray(goals.body_fat) && goals.body_fat.length === 2 ? goals.body_fat : null;
+  if(w && bf){
+    const lean = bf.map(f => Math.round(w.current * (1 - f / 100)));
+    cells.push([bf[0] === bf[1] ? bf[0] + '%' : bf[0] + '–' + bf[1] + '%', 'Body fat, your estimate']);
+    cells.push([(lean[0] === lean[1] ? lean[0] : lean[1] + '–' + lean[0]) + ' kg', 'Lean mass: muscle, bone, water']);
+  }
+  if(goals.waist_in){
+    const cm = goals.waist_in * 2.54;
+    cells.push([goals.waist_in + ' in', 'Waist (' + Math.round(cm) + ' cm), ' + (cm / (h * 100)).toFixed(2) + ' of height']);
+  }
+  return `<div class="card"><h2>BMI &amp; body composition</h2>
+    <div class="pbs three">${cells.map(([v, l]) => `<div class="pb"><b>${v}</b><span>${l}</span></div>`).join('')}</div>
+    <p class="muted" style="margin:10px 0 0">Height ${h} m. BMI only knows height and weight, so it can't tell muscle from fat, and with your muscle it reads high. Your waist and body fat tell you more; around 0.5 of your height is the usual waist guide. Update them under Setup.</p></div>`;
+}
+function sessionsCard(){
+  if(!doneSessions().length) return '';
+  return `<div class="card"><h2>Sessions each month</h2>
+    <p class="muted" style="margin:0 0 6px">Every session you've completed, by type.</p>
+    <canvas id="sessChart" height="200"></canvas></div>`;
+}
+function bestsCard(m){
+  const cells = [];
+  TYPES.forEach(type => {
+    const top = rows.filter(r => r.top_set != null && (r.trained_as || r.focus) === type)
+      .sort((a,b) => (+b.top_set - +a.top_set) || (a.date < b.date ? -1 : 1))[0];
+    if(top) cells.push([top.top_set + ' kg' + (top.top_reps ? ' &times; ' + top.top_reps : ''), SW_LABELS[type] + ', ' + fmtD(top.date)]);
+  });
+  const perWeek = {};
+  doneSessions().forEach(r => { perWeek[r.week] = (perWeek[r.week] || 0) + 1; });
+  const bw = Object.entries(perWeek).sort((a,b) => b[1] - a[1])[0];
+  if(bw) cells.push([bw[1] + ' sessions', 'Most in one week (week ' + bw[0] + ')']);
+  const lw = [...workouts].sort((a,b) => (b.duration_min || 0) - (a.duration_min || 0))[0];
+  if(lw && lw.duration_min) cells.push([Math.round(lw.duration_min) + ' min', 'Longest Watch workout, ' + fmtD(lw.date)]);
+  if(m.weights.length){
+    const low = [...m.weights].sort((a,b) => a.body_weight - b.body_weight)[0];
+    cells.push([low.body_weight + ' kg', 'Lightest weigh-in, ' + fmtD(low.date)]);
+  }
+  if(!cells.length) return '';
+  return `<div class="card"><h2>Personal bests</h2>
+    <div class="pbs">${cells.map(([v, l]) => `<div class="pb"><b>${v}</b><span>${l}</span></div>`).join('')}</div></div>`;
+}
+function latestCard(){
+  const done = doneSessions().sort((a,b) => a.date < b.date ? 1 : -1).slice(0, 8);
+  if(!done.length) return '';
+  return `<div class="card"><h2>Latest sessions</h2><div style="overflow-x:auto"><table>
+    <tr><th>Day</th><th>Session</th><th class="num">Top set</th><th class="num">Watch</th></tr>
+    ${done.map(r => {
+      const type = r.trained_as || r.focus, wos = workoutsOn(r.date);
+      const mins = wos.reduce((s, w) => s + (w.duration_min || 0), 0);
+      return `<tr onclick="openDay('${r.date}')" style="cursor:pointer"><td style="white-space:nowrap">${fmtD(r.date)}</td>
+        <td><span class="chip-s" style="background:${COLORS[type]};color:${DCOLORS[type]}">${esc(type)}</span></td>
+        <td class="num" style="white-space:nowrap">${r.top_set != null ? r.top_set + (r.top_reps ? ' &times; ' + r.top_reps : '') : '–'}</td>
+        <td class="num" style="white-space:nowrap">${wos.length ? Math.round(mins) + ' min' : '–'}</td></tr>`;
+    }).join('')}
+  </table></div><p class="muted" style="margin:8px 0 0">Tap a session to open that day.</p></div>`;
+}
 function renderStats(){
   const el = document.getElementById('view-stats');
   const m = computeMetrics(rows, todayStr(), goals);
   const tr = weightTrend(m.weights, todayStr(), goals);
   const sw = strengthVsWeight(rows, m.weights, tr.avg7);
   el.innerHTML = `
-    <div class="card">
-      <h2>Overall training</h2>
-      <div class="grid2">
-        <div class="stat"><div class="v">${m.completed}/${m.totalTraining}</div><div class="l">Completed</div></div>
-        <div class="stat"><div class="v">${Math.round(m.overallPct*100)}%</div><div class="l">Complete</div></div>
-        <div class="stat"><div class="v">${m.missed}</div><div class="l">Missed</div></div>
-        <div class="stat"><div class="v" style="color:${m.unmarked ? 'var(--warn)' : 'inherit'}">${m.unmarked}</div><div class="l">Unmarked</div></div>
-      </div>
-      <div class="bar"><div style="width:${Math.min(100, m.overallPct*100)}%"></div></div>
-      <p class="muted" style="text-align:center;margin:8px 0 0">${rows.length ? 'Sessions due so far, ' + fmtD(rows[0].date) + ' to today · ' + m.weekly.length + ' weeks' : ''}</p>
-    </div>
-    ${blockCard()}
+    ${journeyBand(m)}
+    ${tilesStrip(m)}
     ${weightCard(m, tr)}
+    ${mjCard(m)}
+    ${bodyCard(m)}
+    ${sessionsCard()}
     ${strengthCard()}
     ${strengthWeightCard(sw)}
+    ${bestsCard(m)}
+    ${latestCard()}
+    <div class="sec-h">Training detail</div>
+    ${blockCard()}
     ${watchCard()}
     <div class="card">
       <h2>By workout type</h2>
@@ -1111,7 +1260,6 @@ function renderStats(){
         <td class="num">${Math.round(p.pct*100)}%</td></tr>`).join('')}
       </table>
     </div>
-    ${mjCard(m)}
     ${journalCard()}
     <div class="card">
       <h2>Weekly summary</h2>
@@ -1146,11 +1294,28 @@ function renderStats(){
           { label:'7-day avg', data: idx.map(i => tr.avg7[i]), borderColor:'#16324F', borderWidth:2.5,
             pointRadius:0, tension:.3, fill:false },
           { label:'Goal ' + goals.target_kg, data: pts.map(() => goals.target_kg), borderColor:'#1e8449',
-            borderDash:[6,5], pointRadius:0, fill:false }
+            borderDash:[6,5], pointRadius:0, fill:false },
+          // The start line only on "All", where the whole journey is in view.
+          ...(wRange === 0 && goals.mj_start_kg ? [{ label:'Start ' + goals.mj_start_kg, data: pts.map(() => goals.mj_start_kg),
+            borderColor:'#8a97a4', borderDash:[3,4], pointRadius:0, fill:false }] : [])
         ]},
       options:{ plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } },
         scales:{ x:{ ticks:{ maxTicksLimit:6, autoSkip:true, maxRotation:0 } },
                  y:{ suggestedMin: goals.target_kg - 2 } }, maintainAspectRatio:true }
+    });
+  }
+  if(sessChart){ sessChart.destroy(); sessChart = null; }
+  const sc = document.getElementById('sessChart');
+  if(sc && window.Chart){
+    const done = doneSessions();
+    const months = [...new Set(done.map(r => r.date.slice(0, 7)))].sort();
+    sessChart = new Chart(sc, {
+      type:'bar',
+      data:{ labels: months.map(mm => new Date(mm + '-15T12:00:00').toLocaleDateString('en-GB', { month: 'short' })),
+        datasets: TYPES.map(type => ({ label: type, backgroundColor: SW_COLORS[type], borderRadius:3, stack:'s',
+          data: months.map(mm => done.filter(r => r.date.startsWith(mm) && (r.trained_as || r.focus) === type).length) })) },
+      options:{ plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } },
+        scales:{ x:{ stacked:true, grid:{ display:false } }, y:{ stacked:true, ticks:{ precision:0 } } }, maintainAspectRatio:true }
     });
   }
   if(swChart){ swChart.destroy(); swChart = null; }
@@ -1214,6 +1379,13 @@ function renderSettings(){
         <div><label class="fld">Mounjaro start</label><input type="date" id="gMjStart" value="${g.mj_start}"></div>
         <div><label class="fld">Weight at start (kg)</label><input type="text" inputmode="decimal" id="gMjKg" value="${g.mj_start_kg}"></div>
       </div>
+      <div class="row2">
+        <div><label class="fld">Height (m)</label><input type="text" inputmode="decimal" id="gHeight" value="${g.height_m ?? ''}" placeholder="e.g. 1.71"></div>
+        <div><label class="fld">Waist (inches)</label><input type="text" inputmode="decimal" id="gWaist" value="${g.waist_in ?? ''}" placeholder="e.g. 34"></div>
+      </div>
+      <label class="fld">Body fat estimate (%)</label>
+      <input type="text" inputmode="text" id="gBodyFat" value="${Array.isArray(g.body_fat) ? (g.body_fat[0] === g.body_fat[1] ? g.body_fat[0] : g.body_fat.join('-')) : ''}" placeholder="e.g. 15-18, or a single figure">
+      <p class="muted" style="margin:6px 0 0">Height, waist and body fat feed the BMI and body composition panel on Stats. All optional.</p>
       <label class="fld">Mounjaro dose history</label>
       <table>${ds.map(d => `<tr><td>${fmtDY(d.from)}</td><td class="num">${d.mg} mg</td>
         <td class="num"><button class="link" style="color:var(--bad);padding:0;font-size:13px" onclick="removeDose('${d.from}')">remove</button></td></tr>`).join('')}</table>
@@ -1286,6 +1458,20 @@ function readGoalForm(){
   const mk = num('gMjKg');
   if(!(mk >= 40 && mk <= 250)){ toast('Start weight looks wrong'); return null; }
   g.mj_start_kg = Math.round(mk * 10) / 10;
+  // Body measurements are optional: blank clears them.
+  const raw = id => String(document.getElementById(id).value).trim();
+  if(raw('gHeight') === '') g.height_m = null;
+  else { const h = num('gHeight'); if(!(h >= 1.2 && h <= 2.3)){ toast('Height should be in metres, like 1.71'); return null; } g.height_m = Math.round(h * 100) / 100; }
+  if(raw('gWaist') === '') g.waist_in = null;
+  else { const wi = num('gWaist'); if(!(wi >= 20 && wi <= 70)){ toast('Waist should be in inches, like 34'); return null; } g.waist_in = Math.round(wi * 2) / 2; }
+  const bfm = raw('gBodyFat').replace(/,/g, '.').replace(/%/g, '').match(/^(\d+(?:\.\d+)?)(?:\s*[-–to]+\s*(\d+(?:\.\d+)?))?$/);
+  if(raw('gBodyFat') === '') g.body_fat = null;
+  else if(!bfm){ toast('Body fat like 15-18, or a single figure'); return null; }
+  else {
+    const lo = +bfm[1], hi = bfm[2] != null ? +bfm[2] : lo;
+    if(!(lo >= 3 && hi <= 60 && lo <= hi)){ toast('Body fat should be between 3 and 60%'); return null; }
+    g.body_fat = [lo, hi];
+  }
   const hr = num('gMaxHr');
   if(!(hr >= 100 && hr <= 230)){ toast('Max heart rate should be between 100 and 230'); return null; }
   g.max_hr = Math.round(hr);
