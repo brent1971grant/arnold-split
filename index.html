@@ -85,6 +85,18 @@
   .row2{display:flex; gap:10px;}
   .row2 > div{flex:1; min-width:0;}
   .wo{background:var(--soft); border-radius:10px; padding:8px 10px; font-size:13px; margin-top:12px; line-height:1.55;}
+  .chip .cnt{display:inline-block; min-width:18px; margin-left:6px; padding:1px 5px; border-radius:9px; background:var(--brass); color:#fff; font-size:11px; font-weight:700; text-align:center;}
+  .chip.open{box-shadow:inset 0 0 0 2px var(--brass);}
+  .composer{background:var(--soft); border-radius:12px; padding:10px 12px 12px; margin:2px 0 8px;}
+  .composer input{margin-top:6px;}
+  .composer .row2 .primary{margin-top:8px;}
+  .entries{display:grid; gap:7px; margin:4px 0 2px;}
+  .entry{display:flex; align-items:baseline; gap:8px; font-size:14px; line-height:1.4;}
+  .entry .et{font:500 11px/1 var(--mono); color:var(--muted); white-space:nowrap;}
+  .entry .tx{flex:1; min-width:0; overflow-wrap:anywhere;}
+  .entry .x{border:none; background:none; color:var(--muted); font-size:20px; line-height:1; padding:0 4px; align-self:center;}
+  .jitem{font-size:14px; line-height:1.45; margin-top:3px;}
+  .jitem .et{font:500 11px/1 var(--mono); color:var(--muted); margin:0 4px;}
   .wtag{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:9px; background:var(--soft); color:var(--muted); margin-right:4px;}
   .warnline{color:var(--warn); font-weight:600;}
   /* Plan list */
@@ -231,7 +243,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -721,6 +733,7 @@ let editDate = null; // null = today; otherwise a past/future date being edited
 function curDate(){ return editDate || todayStr(); }
 function openDay(d){
   editDate = (d === todayStr()) ? null : d;
+  composeTopic = null;
   cur = 'today';
   document.querySelectorAll('nav button').forEach(x => x.classList.toggle('sel', x.dataset.v === 'today'));
   views.forEach(v => document.getElementById('view-'+v).classList.toggle('hide', v !== 'today'));
@@ -829,6 +842,7 @@ function renderToday(){
   const lift = TOP_LIFT[type];
   const prev = lift ? lastTopSet(type, r.date) : null;
   const tags = Array.isArray(r.tags) ? r.tags : [];
+  const parsed = parseNotes(r.notes);
   const offplan = r.status === 'Completed' && r.trained_as !== r.focus;
   el.innerHTML = `
     ${editDate ? `<div class="card editbar"><b>Editing ${fmtD(editDate)}</b>. Changes save and sync as normal. <button class="link" onclick="openDay(todayStr())" style="padding:0">Back to today</button></div>` : ''}
@@ -860,11 +874,20 @@ function renderToday(){
       <input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" id="bwInput"
         value="${r.body_weight ?? ''}" placeholder="e.g. 87.2"
         onchange="saveWeight(this.value)">
-      <label class="fld">Notes</label>
-      <textarea id="notesInput" onchange="saveNotes(this.value)" placeholder="optional">${esc(r.notes)}</textarea>
-      <div class="chips">${TAGS.map(t =>
-        `<button class="chip sm ${tags.includes(t)?'sel':''}" onclick="toggleTag('${t}')">${t}</button>`).join('')}
-      </div>
+      <label class="fld">How was today?</label>
+      <div class="chips">${TAGS.map(t => {
+        const n = parsed.entries.filter(e => e.topic === t).length;
+        return `<button class="chip sm ${tags.includes(t) ? 'sel' : ''} ${composeTopic === t ? 'open' : ''}" onclick="openTopic('${t}')">${t}${n ? '<b class="cnt">' + n + '</b>' : ''}</button>`;
+      }).join('')}</div>
+      ${composeTopic ? composerHTML(parsed, tags) : ''}
+      ${parsed.entries.length
+        ? `<div class="entries">${parsed.entries.map((e, i) => ({ e, i })).sort((a, b) => a.e.time < b.e.time ? -1 : a.e.time > b.e.time ? 1 : a.i - b.i)
+            .map(({ e, i }) => `<div class="entry"><span class="chip-s" style="background:var(--soft);color:var(--brass)">${esc(e.topic)}</span>
+              <span class="et">${esc(e.time)}</span><span class="tx">${esc(e.text)}</span>
+              <button class="x" aria-label="Remove this ${esc(e.topic)} note" onclick="removeEntry(${i})">&times;</button></div>`).join('')}</div>`
+        : composeTopic ? '' : '<p class="muted" style="margin:2px 0 0">Tap a topic to add a note about it. Add as many as you like through the day.</p>'}
+      <label class="fld">Other notes</label>
+      <textarea id="notesInput" onchange="saveNotes(this.value)" placeholder="optional">${esc(parsed.free)}</textarea>
       ${watchBlock(r)}
     </div>
     ${quickStatsCard()}`;
@@ -935,19 +958,89 @@ function saveTopReps(v){
   toast('Reps saved: ' + n + (cfg && !repsCol ? ' (on this device until the cloud has a reps column - see Setup)' : ''), cfg && !repsCol ? 3500 : 1400);
   refreshTopSetInfo();
 }
-function toggleTag(t){
-  const r = byDate(curDate()); if(!r) return;
-  const list = Array.isArray(r.tags) ? [...r.tags] : [];
-  const i = list.indexOf(t);
-  if(i >= 0) list.splice(i, 1); else list.push(t);
-  setField(curDate(), 'tags', list.length ? list : null);
+/* ---------- Topic notes ----------
+   Tap a topic (Protein, Sleep...) to write a note about it; as many per day as you like.
+   Each one is saved as a line in the day's notes, "[Protein 08:10] 40 g shake", so sync,
+   backups, CSV and the coaches carry on reading plain notes. The topic is also kept as a tag. */
+const ENTRY_RE = /^\[([^\]]+?) (\d{1,2}:\d{2})\]\s?(.*)$/;
+const TOPIC_HINT = { Shoulder: 'e.g. slight twinge on overhead press', Sleep: 'e.g. 6 hours, woke twice',
+  Energy: 'e.g. strong all session', Carbs: 'e.g. rice and potatoes at lunch', Protein: 'e.g. 40 g shake' };
+let composeTopic = null;
+function parseNotes(notes){
+  const free = [], entries = [];
+  String(notes || '').split('\n').forEach(line => {
+    const m = ENTRY_RE.exec(line.trim());
+    if(m) entries.push({ topic: m[1], time: m[2], text: m[3] }); else free.push(line);
+  });
+  return { free: free.join('\n').trim(), entries };
+}
+function buildNotes(p){
+  return [p.free, ...p.entries.map(e => `[${e.topic} ${e.time}] ${e.text}`)].filter(x => x && x.trim()).join('\n') || null;
+}
+const nowHM = () => { const n = new Date(); return String(n.getHours()).padStart(2, '0') + ':' + String(n.getMinutes()).padStart(2, '0'); };
+function composerHTML(parsed, tags){
+  const t = composeTopic, orphanTag = tags.includes(t) && !parsed.entries.some(e => e.topic === t);
+  return `<div class="composer">
+    <div class="eyebrow">${esc(t)} &middot; ${nowHM()}</div>
+    <input type="text" id="entryInput" autocomplete="off" enterkeyhint="done" placeholder="${esc(TOPIC_HINT[t] || 'Your note')}"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();addEntry();}">
+    <div class="row2"><div><button class="primary" onclick="addEntry()">Add note</button></div>
+      <div><button class="primary alt" onclick="closeTopic()">Cancel</button></div></div>
+    ${orphanTag ? `<button class="link" onclick="clearTag()">Clear the ${esc(t)} tag</button>` : ''}
+  </div>`;
+}
+function openTopic(t){
+  composeTopic = composeTopic === t ? null : t;
+  render(true);
+  const inp = document.getElementById('entryInput');
+  if(inp) inp.focus();   // in the same tap, so the iPhone keyboard opens
+}
+function closeTopic(){ composeTopic = null; render(true); }
+function addEntry(){
+  const inp = document.getElementById('entryInput'), text = (inp ? inp.value : '').trim();
+  if(!text){ toast('Type a note first'); return; }
+  const d = curDate(), r = byDate(d); if(!r) return;
+  const topic = composeTopic, p = parseNotes(r.notes);
+  p.entries.push({ topic, time: nowHM(), text: text.replace(/\s*\n\s*/g, ' ') });
+  setField(d, 'notes', buildNotes(p));
+  const tags = Array.isArray(r.tags) ? [...r.tags] : [];
+  if(!tags.includes(topic)){ tags.push(topic); setField(d, 'tags', tags); }
+  composeTopic = null;
+  toast(topic + ' note added');
+  render(true);
+}
+function removeEntry(i){
+  const d = curDate(), r = byDate(d); if(!r) return;
+  const p = parseNotes(r.notes), e = p.entries[i];
+  if(!e || !confirm('Remove this ' + e.topic + ' note?')) return;
+  p.entries.splice(i, 1);
+  setField(d, 'notes', buildNotes(p));
+  if(!p.entries.some(x => x.topic === e.topic) && Array.isArray(r.tags) && r.tags.includes(e.topic)){
+    const tags = r.tags.filter(x => x !== e.topic);
+    setField(d, 'tags', tags.length ? tags : null);
+  }
+  toast('Note removed');
+  render(true);
+}
+function clearTag(){
+  const d = curDate(), r = byDate(d); if(!r || !composeTopic) return;
+  const tags = (Array.isArray(r.tags) ? r.tags : []).filter(x => x !== composeTopic);
+  setField(d, 'tags', tags.length ? tags : null);
+  composeTopic = null;
   render(true);
 }
 function refreshQuickStats(){
   const el = document.getElementById('quickStats');
   if(el) el.outerHTML = quickStatsCard();
 }
-function saveNotes(v){ setField(curDate(), 'notes', v || null); toast('Saved'); }
+// The box holds only free text; topic notes are kept and written back alongside it.
+function saveNotes(v){
+  const r = byDate(curDate()); if(!r) return;
+  const p = parseNotes(r.notes);
+  p.free = String(v || '').trim();
+  setField(curDate(), 'notes', buildNotes(p));
+  toast('Saved');
+}
 // Manual safety valve - also used by the empty-state button.
 function extendNow(){
   const n = extendScheduleIfNeeded(true);
@@ -1012,6 +1105,9 @@ function applyJournal(){
       const hit = (!jQ || e.textContent.toLowerCase().includes(jQ))
         && (!jTag || (e.dataset.tags || '').split(',').includes(jTag));
       e.style.display = hit ? '' : 'none';
+      // With a topic picked, show only that topic's notes inside each day.
+      e.querySelectorAll('[data-topic]').forEach(x => { x.style.display = !jTag || x.dataset.topic === jTag ? '' : 'none'; });
+      const fr = e.querySelector('.jfree'); if(fr) fr.style.display = jTag ? 'none' : '';
       if(hit) any = true;
     });
     d.style.display = any ? '' : 'none';
@@ -1144,8 +1240,13 @@ function journalCard(){
   const noted = rows.filter(r => (r.notes && String(r.notes).trim()) || (Array.isArray(r.tags) && r.tags.length))
     .sort((a,b) => a.date < b.date ? 1 : -1);
   if(!noted.length) return `<div class="card"><h2>Notes journal</h2><p class="muted">No notes yet. Anything you type in a day's Notes box, and any tags you tap, collect here automatically.</p></div>`;
+  // Count each topic note; a day tagged without notes counts once.
   const counts = {};
-  noted.forEach(r => (r.tags || []).forEach(t => { counts[t] = (counts[t] || 0) + 1; }));
+  noted.forEach(r => {
+    const es = parseNotes(r.notes).entries;
+    es.forEach(e => { counts[e.topic] = (counts[e.topic] || 0) + 1; });
+    (r.tags || []).forEach(t => { if(!es.some(e => e.topic === t)) counts[t] = (counts[t] || 0) + 1; });
+  });
   const byWeek = {};
   noted.forEach(r => { (byWeek[r.week] = byWeek[r.week] || []).push(r); });
   const weeks = Object.keys(byWeek).map(Number).sort((a,b) => b-a);
@@ -1159,16 +1260,19 @@ function journalCard(){
         <summary style="padding:9px 0;font-weight:700;font-size:13px;cursor:pointer;list-style:none">
           Week ${w} <span class="muted" style="font-weight:400">&middot; ${byWeek[w].length} entr${byWeek[w].length>1?'ies':'y'}</span>
         </summary>
-        ${byWeek[w].map(r => `
-          <div class="jentry" data-tags="${esc((r.tags || []).join(','))}" style="padding:6px 0 10px 6px" onclick="openDay('${r.date}')">
+        ${byWeek[w].map(r => { const pn = parseNotes(r.notes);
+          const topics = [...new Set([...(r.tags || []), ...pn.entries.map(e => e.topic)])];
+          return `
+          <div class="jentry" data-tags="${esc(topics.join(','))}" style="padding:6px 0 10px 6px" onclick="openDay('${r.date}')">
             <div class="muted" style="margin-bottom:2px">${fmtD(r.date)} &middot;
               <span style="color:${DCOLORS[r.trained_as || r.focus]};font-weight:600">${r.trained_as || r.focus}</span>
               ${r.body_weight != null ? '&middot; ' + r.body_weight + ' kg' : ''}</div>
-            ${(r.tags || []).map(t => '<span class="wtag">' + esc(t) + '</span>').join('')}
-            ${r.notes ? `<div style="font-size:14px">${esc(r.notes)}</div>` : ''}
-          </div>`).join('')}
+            ${(r.tags || []).filter(t => !pn.entries.some(e => e.topic === t)).map(t => '<span class="wtag" data-topic="' + esc(t) + '">' + esc(t) + '</span>').join('')}
+            ${pn.entries.map(e => `<div class="jitem" data-topic="${esc(e.topic)}"><span class="chip-s" style="background:var(--soft);color:var(--brass)">${esc(e.topic)}</span><span class="et">${esc(e.time)}</span>${esc(e.text)}</div>`).join('')}
+            ${pn.free ? `<div class="jfree" style="font-size:14px;margin-top:3px">${esc(pn.free)}</div>` : ''}
+          </div>`; }).join('')}
       </details>`).join('')}</div>
-    <p class="muted" style="margin:8px 0 0">Newest week open. Tap a tag to filter, a week to expand, an entry to edit that day.</p>
+    <p class="muted" style="margin:8px 0 0">Newest week open. Tap a topic to see only those notes, a week to expand, an entry to edit that day.</p>
   </div>`;
 }
 /* ---------- Stats: dashboard sections ---------- */
