@@ -156,7 +156,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 13;
+const APP_VERSION = 14;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -1479,14 +1479,17 @@ function showWelcome(){
     setTimeout(() => { el.classList.add('hide'); if(stopDust){ stopDust(); stopDust = null; } }, 460);
   };
 }
+// Shown when the app opens after 2+ hours away (morning, gym, evening), not on a quick app switch.
+const WELCOME_GAP = 2 * 3600 * 1000;
 function maybeWelcome(){
-  const t = todayStr();
-  let seen = null;
-  try{ seen = localStorage.getItem('as_welcome'); }catch(e){}
-  if(seen === t || !rows.length) return;
-  try{ localStorage.setItem('as_welcome', t); }catch(e){}
+  let away = 0;
+  try{ away = +localStorage.getItem('as_lastaway') || 0; }catch(e){}
+  if(!rows.length || Date.now() - away < WELCOME_GAP) return;
   showWelcome();
 }
+function noteAway(){ try{ localStorage.setItem('as_lastaway', String(Date.now())); }catch(e){} }
+window.addEventListener('pagehide', noteAway);
+document.addEventListener('visibilitychange', () => { if(document.hidden) noteAway(); });
 // Tap the ARNOLD SPLIT title to see the welcome again.
 document.querySelector('header h1').addEventListener('click', () => { if(rows.length) showWelcome(); });
 
