@@ -156,7 +156,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 14;
+const APP_VERSION = 15;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -1510,6 +1510,26 @@ document.addEventListener('visibilitychange', () => {
 // Register with updateViaCache:'none' so the worker script is never served from
 // the HTTP cache - updates reach the phone on the next open, not a day later.
 if('serviceWorker' in navigator){
+  // Every release changes sw.js (its CACHE name), so a new worker taking over means a new
+  // version. Reload then, so the phone runs it straight away instead of the copy it has kept
+  // in memory. Not on the very first install, and never while a field is being typed in.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  const reloadForUpdate = () => {
+    if(reloading) return;
+    const ae = document.activeElement;
+    if(ae && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && ae.type !== 'checkbox'))){
+      setTimeout(reloadForUpdate, 1500);   // try again once the field is left
+      return;
+    }
+    reloading = true;
+    try{ sessionStorage.setItem('as_updated', '1'); }catch(e){}
+    location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => { if(hadController) reloadForUpdate(); });
+  try{
+    if(sessionStorage.getItem('as_updated')){ sessionStorage.removeItem('as_updated'); toast('Arnold updated to version ' + APP_VERSION, 2500); }
+  }catch(e){}
   navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
     reg.update();
     document.addEventListener('visibilitychange', () => { if(!document.hidden) reg.update(); });
