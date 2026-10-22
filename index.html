@@ -6,95 +6,135 @@
 <title>Arnold Split</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<!-- Launch screens for home-screen use, one per iPhone screen size (portrait). -->
+<link rel="apple-touch-startup-image" media="screen and (device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1320x2868.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 420px) and (device-height: 912px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1260x2736.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1206x2622.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1290x2796.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1179x2556.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1284x2778.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1170x2532.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1242x2688.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="splash/splash-1125x2436.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/splash-828x1792.jpg">
+<link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="splash/splash-750x1334.jpg">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Arnold">
 <meta name="theme-color" content="#16324F">
+<meta name="color-scheme" content="light dark">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Big+Shoulders+Display:wght@700;800&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
+  /* One design for every tab (from Brent's Training Record): navy brand, brass accents,
+     condensed display numerals, mono labels. Light and dark follow the phone's setting. */
   :root{
-    --navy:#16324F; --ink:#1c2733; --muted:#6b7a89; --bg:#f4f6f8; --card:#ffffff;
+    --navy:#16324F; --ink:#16212c; --muted:#5f6d7b; --bg:#f2f4f7; --card:#ffffff; --line:#e3e8ed;
+    --soft:#eaeef2; --field:#ffffff; --field-line:#d3dae1; --accent:#16324F; --link:#2276b3;
+    --btn2:#39566f; --note:#fff6df; --toast-bg:#16212c; --toast-ink:#ffffff; --chart-ink:#16324F;
+    --shadow:0 1px 3px rgba(16,30,45,.08); --brass:#a77a22;
     --cb:#EBF5FB; --sa:#F5EEF8; --lg:#FEF9E7; --rr:#F2F3F4;
-    --cb-d:#2E86C1; --sa-d:#8E44AD; --lg-d:#B7950B; --rr-d:#7f8c8d;
-    --good:#1e8449; --bad:#c0392b; --warn:#d68910;
+    --cb-d:#2E86C1; --sa-d:#8E44AD; --lg-d:#9c7f0a; --rr-d:#6f7d86;
+    --good:#1e8449; --bad:#c0392b; --warn:#c27c0e;
+    --disp:"Big Shoulders Display","Oswald","Arial Narrow",sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+    color-scheme:light;
   }
+  @media (prefers-color-scheme: dark){ :root{
+    --ink:#e7ecf1; --muted:#93a0ad; --bg:#0c141c; --card:#15202b; --line:#253341;
+    --soft:#1e2b38; --field:#0f1922; --field-line:#2d3c4b; --accent:#3a6d9e; --link:#7fb8e6;
+    --btn2:#2a3d50; --note:#2e2714; --toast-bg:#e7ecf1; --toast-ink:#0c141c; --chart-ink:#cdd7e1;
+    --shadow:0 0 0 1px var(--line); --brass:#d6a64a;
+    --cb:#12283a; --sa:#24192e; --lg:#2a2411; --rr:#1c232a;
+    --cb-d:#62b0e6; --sa-d:#c39ad6; --lg-d:#dcb53a; --rr-d:#9aa7b1;
+    --good:#4fbf83; --bad:#ef6f62; --warn:#f0ae4c;
+    color-scheme:dark;
+  } }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html,body{margin:0; padding:0; background:var(--bg); color:var(--ink);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
-  body{padding-bottom:calc(70px + env(safe-area-inset-bottom));}
+  body{padding-bottom:calc(76px + env(safe-area-inset-bottom));}
   header{background:var(--navy); color:#fff; padding:calc(12px + env(safe-area-inset-top)) 16px 12px;
     position:sticky; top:0; z-index:10; display:flex; justify-content:space-between; align-items:center;}
-  header h1{font-size:17px; margin:0; font-weight:700; letter-spacing:.3px;}
-  #syncBadge{font-size:11px; opacity:.85;}
+  header h1{font:800 21px/1 var(--disp); margin:0; letter-spacing:.06em;}
+  #syncBadge{font:500 10.5px/1 var(--mono); letter-spacing:.04em; opacity:.8;}
   main{padding:14px; max-width:560px; margin:0 auto;}
-  .card{background:var(--card); border-radius:14px; padding:14px 16px; margin-bottom:12px;
-    box-shadow:0 1px 3px rgba(0,0,0,.07);}
+  .card{background:var(--card); border-radius:14px; padding:14px 16px; margin-bottom:12px; box-shadow:var(--shadow);}
   .muted{color:var(--muted); font-size:12px;}
-  h2{font-size:13px; text-transform:uppercase; letter-spacing:.6px; color:var(--muted); margin:4px 0 10px;}
+  h2{font:700 19px/1.1 var(--disp); text-transform:uppercase; letter-spacing:.03em; color:var(--ink); margin:2px 0 10px;}
+  .eyebrow{font:500 10.5px/1.3 var(--mono); letter-spacing:.12em; text-transform:uppercase; color:var(--muted);}
   /* Today */
-  .focus-pill{display:inline-block; padding:4px 12px; border-radius:20px; font-weight:700; font-size:14px;}
-  .btn-row{display:flex; gap:8px; margin:12px 0;}
-  button.big{flex:1; padding:14px 4px; border:none; border-radius:12px; font-size:15px; font-weight:700; background:#e8ecf0; color:var(--ink);}
+  .editbar{background:var(--note); padding:10px 16px;}
+  .focus-title{font:800 34px/1 var(--disp); text-transform:uppercase; letter-spacing:.02em; margin:8px 0 4px;}
+  .btn-row{display:flex; gap:8px; margin:14px 0 12px;}
+  button.big{flex:1; padding:14px 4px; border:none; border-radius:12px; font-size:15px; font-weight:700; background:var(--soft); color:var(--ink);}
   button.big.on-done{background:var(--good); color:#fff;}
   button.big.on-miss{background:var(--bad); color:#fff;}
-  button.big.on-plan{background:var(--navy); color:#fff;}
+  button.big.on-plan{background:var(--accent); color:#fff;}
   .chips{display:flex; flex-wrap:wrap; gap:6px; margin:8px 0;}
-  .chip{padding:7px 12px; border-radius:18px; font-size:13px; border:1.5px solid #d5dbe1; background:#fff; color:var(--ink);}
+  .chip{padding:7px 12px; border-radius:18px; font-size:13px; border:1.5px solid var(--field-line); background:var(--field); color:var(--ink);}
   .chip.sm{padding:5px 11px; font-size:12px;}
-  .chip.sel{border-color:var(--navy); background:var(--navy); color:#fff; font-weight:600;}
+  .chip.sel{border-color:var(--accent); background:var(--accent); color:#fff; font-weight:600;}
   input[type=number], textarea, input[type=text], input[type=password], input[type=date]{
-    width:100%; padding:10px 12px; border:1.5px solid #d5dbe1; border-radius:10px; font-size:16px; background:#fff; color:var(--ink);}
+    width:100%; padding:10px 12px; border:1.5px solid var(--field-line); border-radius:10px; font-size:16px; background:var(--field); color:var(--ink);}
+  input:focus, textarea:focus{outline:none; border-color:var(--link);}
   textarea{resize:vertical; min-height:44px;}
-  label.fld{display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; font-weight:600;}
+  label.fld{display:block; font:500 10.5px/1.3 var(--mono); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:12px 0 5px;}
   .row2{display:flex; gap:10px;}
   .row2 > div{flex:1; min-width:0;}
-  .wo{background:#f4f8fb; border-radius:10px; padding:8px 10px; font-size:13px; margin-top:12px; line-height:1.55;}
-  .wtag{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:9px; background:#eef1f4; color:var(--muted); margin-right:4px;}
+  .wo{background:var(--soft); border-radius:10px; padding:8px 10px; font-size:13px; margin-top:12px; line-height:1.55;}
+  .wtag{display:inline-block; font-size:11px; font-weight:700; padding:1px 7px; border-radius:9px; background:var(--soft); color:var(--muted); margin-right:4px;}
   .warnline{color:var(--warn); font-weight:600;}
   /* Plan list */
-  .block-h{font-size:13px; font-weight:800; color:var(--navy); margin:22px 4px 2px; padding-top:10px; border-top:2px solid var(--navy); letter-spacing:.5px;}
-  .week-h{font-size:12px; font-weight:700; color:var(--muted); margin:14px 4px 6px; text-transform:uppercase;}
+  .block-h{font:500 10.5px/1 var(--mono); letter-spacing:.14em; color:var(--brass); margin:24px 4px 4px; padding-top:12px; border-top:2px solid var(--brass);}
+  .week-h{font:700 16px/1 var(--disp); letter-spacing:.04em; color:var(--muted); margin:14px 4px 6px; text-transform:uppercase;}
   .day-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; margin-bottom:5px;}
   .day-row .d{width:62px; font-size:12px; line-height:1.25;}
   .day-row .f{flex:1; font-size:14px; font-weight:600;}
-  .day-row .s{font-size:16px;}
-  .day-row.today-row{outline:2px solid var(--navy);}
+  .day-row .s{display:flex;}
+  .day-row.today-row{outline:2px solid var(--accent);}
   .offplan{font-size:11px; color:var(--warn); font-weight:700;}
   /* Stats */
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
   .stat{text-align:center; padding:8px 2px;}
-  .stat .v{font-size:26px; font-weight:800;}
-  .stat .v.sm{font-size:18px; padding:5px 0;}
+  .stat .v{font:800 30px/1.05 var(--disp);}
+  .stat .v.sm{font-size:20px; padding:5px 0;}
   .stat .l{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.4px;}
   table{width:100%; border-collapse:collapse; font-size:13px;}
-  th{text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; padding:6px 4px; border-bottom:1px solid #e4e8ec;}
-  td{padding:7px 4px; border-bottom:1px solid #eef1f4;}
+  th{text-align:left; color:var(--muted); font:500 10px/1.2 var(--mono); letter-spacing:.08em; text-transform:uppercase; padding:6px 4px; border-bottom:1px solid var(--line);}
+  td{padding:7px 4px; border-bottom:1px solid var(--line);}
   td.num, th.num{text-align:right;}
-  .bar{height:6px; background:#e8ecf0; border-radius:3px; overflow:hidden; margin-top:6px;}
+  .bar{height:6px; background:var(--soft); border-radius:3px; overflow:hidden; margin-top:6px;}
   .bar > div{height:100%; background:var(--good); border-radius:3px;}
   /* Nav */
-  nav{position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid #e2e6ea;
-    display:flex; padding-bottom:env(safe-area-inset-bottom); z-index:10;}
-  nav button{flex:1; border:none; background:none; padding:10px 0 8px; font-size:11px; color:var(--muted); font-weight:600;}
-  nav button .ic{display:block; font-size:20px; margin-bottom:2px;}
-  nav button.sel{color:var(--navy);}
+  nav{position:fixed; bottom:0; left:0; right:0; background:var(--card); border-top:1px solid var(--line);
+    display:flex; padding:0 max(6px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(6px, env(safe-area-inset-left)); z-index:10;}
+  nav button{flex:1; border:none; background:none; padding:8px 0 7px; font-size:10.5px; color:var(--muted); font-weight:600; display:flex; flex-direction:column; align-items:center; gap:3px;}
+  nav button svg{width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;
+    padding:3px 12px; box-sizing:content-box; border-radius:14px;}
+  nav button.sel{color:var(--ink);}
+  nav button.sel svg{background:var(--soft); color:var(--brass); stroke-width:2.1;}
   .hide{display:none;}
-  .toast{position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff;
-    padding:8px 18px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:20; max-width:90%; text-align:center;}
-  .toast.show{opacity:.95;}
-  button.link{background:none;border:none;color:var(--cb-d);font-size:14px;font-weight:600;padding:6px 0;}
-  button.primary{width:100%; padding:12px; border:none; border-radius:10px; background:var(--navy); color:#fff; font-size:15px; font-weight:700; margin-top:10px;}
+  .toast{position:fixed; bottom:calc(86px + env(safe-area-inset-bottom)); left:50%; transform:translateX(-50%); background:var(--toast-bg); color:var(--toast-ink);
+    padding:9px 18px; border-radius:20px; font-size:13px; opacity:0; transition:opacity .3s; pointer-events:none; z-index:20; max-width:90%; text-align:center;}
+  .toast.show{opacity:.96;}
+  button.link{background:none;border:none;color:var(--link);font-size:14px;font-weight:600;padding:6px 0;}
+  button.primary{width:100%; padding:13px; border:none; border-radius:12px; background:var(--accent); color:#fff; font-size:15px; font-weight:700; margin-top:10px;}
+  button.primary.alt{background:var(--btn2);}
+  button:focus-visible{outline:3px solid var(--link); outline-offset:2px;}
+  /* Setup: everyday settings first, technical ones folded away */
+  details.adv{margin-top:18px;}
+  details.adv > summary{list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center;
+    font:500 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); padding:12px 4px;}
+  details.adv > summary::-webkit-details-marker{display:none;}
+  details.adv > summary::after{content:'+'; font:700 18px/1 var(--disp);}
+  details.adv[open] > summary::after{content:'\2013';}
   /* Stats, in the style of Brent's Training Record dashboard: navy journey band, brass accents,
      condensed display numerals, mono labels. */
-  #view-stats{--brass:#a77a22; --disp:"Big Shoulders Display","Oswald","Arial Narrow",sans-serif; --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;}
-  #view-stats .card h2{font:700 19px/1.1 var(--disp); text-transform:uppercase; letter-spacing:.03em; color:var(--ink); margin:2px 0 10px;}
-  #view-stats .stat .v{font-family:var(--disp); font-weight:800; font-size:30px;}
-  #view-stats .eyebrow{font:500 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
   .jband{background:var(--navy); color:#fff; border-radius:14px; padding:18px; margin-bottom:12px; display:grid; gap:12px;}
-  #view-stats .jband .eyebrow{color:rgba(255,255,255,.7);}
+  .jband .eyebrow{color:rgba(255,255,255,.7);}
   .jscale{display:flex; flex-wrap:wrap; align-items:flex-end; gap:6px clamp(6px, 2.4vw, 14px);}
   .jscale > div{display:grid; gap:3px;}
   .jscale b{font:800 clamp(28px, 8.2vw, 42px)/.9 var(--disp);}
@@ -118,7 +158,7 @@
   .pb span{font-size:11.5px; line-height:1.35; color:var(--muted);}
   .doses{display:flex; height:30px; border-radius:6px; overflow:hidden; gap:2px; margin:4px 0 6px;}
   .doses > div{display:flex; align-items:center; justify-content:center; padding:0 4px; font:500 11px/1 var(--mono); color:#fff; white-space:nowrap; overflow:hidden; min-width:54px;}
-  .doses > div.plan{color:var(--ink); background:repeating-linear-gradient(135deg,#e8ecf0 0 6px,transparent 6px 12px); border:1px dashed var(--brass);}
+  .doses > div.plan{color:var(--ink); background:repeating-linear-gradient(135deg,var(--soft) 0 6px,transparent 6px 12px); border:1px dashed var(--brass);}
   .dlegend{display:flex; justify-content:space-between; gap:8px; flex-wrap:wrap; font:500 10.5px/1.2 var(--mono); color:var(--muted); margin-bottom:4px;}
   .sec-h{font:500 10.5px/1 var(--mono); letter-spacing:.14em; text-transform:uppercase; color:var(--muted); margin:22px 4px 10px;}
   .chip-s{display:inline-block; font:500 10.5px/1.2 var(--mono); padding:4px 6px; border-radius:4px; white-space:nowrap;}
@@ -174,11 +214,11 @@
   <section id="view-settings" class="hide"></section>
 </main>
 <nav>
-  <button data-v="today" class="sel"><span class="ic">&#128170;</span>Today</button>
-  <button data-v="plan"><span class="ic">&#128197;</span>Plan</button>
-  <button data-v="stats"><span class="ic">&#128200;</span>Stats</button>
-  <button data-v="guide"><span class="ic">&#128203;</span>Guide</button>
-  <button data-v="settings"><span class="ic">&#9881;&#65039;</span>Setup</button>
+  <button data-v="today" class="sel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9.5v5M20.5 9.5v5M6.5 12h11"/></svg>Today</button>
+  <button data-v="plan"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/></svg>Plan</button>
+  <button data-v="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M7 16.5V11M12 16.5V6M17 16.5v-8"/></svg>Stats</button>
+  <button data-v="guide"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="4" width="14" height="17" rx="2.5"/><path d="M9 4h6v3H9zM8.5 11.5h7M8.5 15h4.5"/></svg>Guide</button>
+  <button data-v="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 12h3M11 12h9M4 17h11M19 17h1"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="17" r="2"/></svg>Setup</button>
 </nav>
 <div class="toast" id="toast"></div>
 <div id="welcome" class="hide" aria-live="polite"></div>
@@ -191,7 +231,7 @@ const FOCI = ['Chest & Back','Shoulders & Arms','Legs','Rest & Recover'];
 const TYPES = FOCI.slice(0,3);
 const COLORS = {'Chest & Back':'var(--cb)','Shoulders & Arms':'var(--sa)','Legs':'var(--lg)','Rest & Recover':'var(--rr)'};
 const DCOLORS = {'Chest & Back':'var(--cb-d)','Shoulders & Arms':'var(--sa-d)','Legs':'var(--lg-d)','Rest & Recover':'var(--rr-d)'};
-const APP_VERSION = 16;
+const APP_VERSION = 17;
 const TAGS = ['Shoulder','Sleep','Energy','Carbs','Protein'];
 // The first lift of each session - its heaviest working set is the strength marker.
 const TOP_LIFT = {'Chest & Back':'Incline Dumbbell Press','Shoulders & Arms':'Seated Barbell Overhead Press','Legs':'Machine Hack Squats'};
@@ -731,9 +771,9 @@ function woLine(w){
 }
 function watchBlock(r){
   const wos = workoutsOn(r.date);
-  if(wos.length) return '<div class="wo">&#8986; <b>Apple Watch</b><br>' + wos.map(woLine).join('<br>') + '</div>';
+  if(wos.length) return '<div class="wo"><span class="eyebrow">Apple Watch</span><br>' + wos.map(woLine).join('<br>') + '</div>';
   if(workouts.length && r.date <= todayStr() && r.focus !== 'Rest & Recover')
-    return '<p class="muted" style="margin:12px 0 0">&#8986; No Watch workout received for this day' + (r.date === todayStr() ? ' yet' : '') + '.</p>';
+    return '<p class="muted" style="margin:12px 0 0">No Watch workout received for this day' + (r.date === todayStr() ? ' yet' : '') + '.</p>';
   return '';
 }
 function lastTopSet(type, before){
@@ -791,12 +831,12 @@ function renderToday(){
   const tags = Array.isArray(r.tags) ? r.tags : [];
   const offplan = r.status === 'Completed' && r.trained_as !== r.focus;
   el.innerHTML = `
-    ${editDate ? `<div class="card" style="background:#fff8e6;padding:10px 16px"><b>Editing ${fmtD(editDate)}</b> - changes save and sync as normal. <button class="link" onclick="openDay(todayStr())" style="padding:0">Back to today</button></div>` : ''}
+    ${editDate ? `<div class="card editbar"><b>Editing ${fmtD(editDate)}</b>. Changes save and sync as normal. <button class="link" onclick="openDay(todayStr())" style="padding:0">Back to today</button></div>` : ''}
     <div class="card" style="border-left:6px solid ${DCOLORS[r.focus]}">
-      <div class="muted">${fmtD(r.date)} &middot; Week ${r.week} &middot; Block ${blockOf(r.week)}, week ${((r.week - 1) % 12) + 1} of 12</div>
-      <div style="margin:8px 0 2px"><span class="focus-pill" style="background:${COLORS[r.focus]};color:${DCOLORS[r.focus]}">${r.focus}</span>
-      ${offplan ? '<span class="offplan"> &#9888; trained off-plan</span>' : ''}</div>
-      <div class="muted" style="margin-top:4px">${r.target_muscles}</div>
+      <div class="eyebrow">${fmtD(r.date)} &middot; Week ${r.week} &middot; Block ${blockOf(r.week)}, week ${((r.week - 1) % 12) + 1} of 12</div>
+      <div class="focus-title" style="color:${DCOLORS[r.focus]}">${r.focus}</div>
+      ${offplan ? '<div class="offplan">Trained off-plan as ' + esc(r.trained_as) + '</div>' : ''}
+      <div class="muted" style="margin-top:2px">${r.target_muscles}</div>
       <div class="btn-row">
         <button class="big ${r.status==='Completed'?'on-done':''}" onclick="mark('Completed')">&#10003; Completed</button>
         <button class="big ${r.status==='Missed'?'on-miss':''}" onclick="mark('Missed')">&#10007; Missed</button>
@@ -916,6 +956,12 @@ function extendNow(){
 }
 
 /* ---------- Plan ---------- */
+// Day status marks for the Plan list: done, missed, still to come.
+const STATUS_ICON = {
+  Completed: '<svg width="22" height="22" viewBox="0 0 22 22" role="img" aria-label="Completed"><circle cx="11" cy="11" r="10" style="fill:var(--good)"/><path d="M6.5 11.3l3 3 6-6.3" style="fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round"/></svg>',
+  Missed: '<svg width="22" height="22" viewBox="0 0 22 22" role="img" aria-label="Missed"><circle cx="11" cy="11" r="10" style="fill:var(--bad)"/><path d="M7.5 7.5l7 7M14.5 7.5l-7 7" style="fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round"/></svg>',
+  Planned: '<svg width="22" height="22" viewBox="0 0 22 22" role="img" aria-label="Planned"><circle cx="11" cy="11" r="9" style="fill:none;stroke:var(--muted);stroke-width:1.8;opacity:.55"/></svg>'
+};
 function renderPlan(){
   const el = document.getElementById('view-plan');
   const t = todayStr();
@@ -928,16 +974,16 @@ function renderPlan(){
     if((w - 1) % 12 === 0) html += `<div class="block-h">BLOCK ${blockOf(w)} &middot; WEEKS ${w}-${w + 11}</div>`;
     html += `<div class="week-h">Week ${w}</div>`;
     html += wr.map(r => {
-      const icon = r.status==='Completed' ? '&#9989;' : r.status==='Missed' ? '&#10060;' : '&#9898;';
+      const icon = STATUS_ICON[r.status] || STATUS_ICON.Planned;
       const off = r.status==='Completed' && r.trained_as !== r.focus;
       const wos = workoutsOn(r.date);
       const mins = wos.reduce((a,x) => a + (x.duration_min || 0), 0);
       return `<div class="day-row ${r.date===t?'today-row':''}" style="background:${COLORS[r.focus]};cursor:pointer" onclick="openDay('${r.date}')">
         <div class="d">${fmtD(r.date)}</div>
         <div class="f" style="color:${DCOLORS[r.focus]}">${r.focus}
-          ${off ? `<div class="offplan">&#9888; did: ${r.trained_as}</div>` : ''}
+          ${off ? `<div class="offplan">Did: ${esc(r.trained_as)}</div>` : ''}
           ${r.body_weight != null ? `<span class="muted" style="font-weight:400"> &middot; ${r.body_weight} kg</span>` : ''}
-          ${wos.length ? `<span class="muted" style="font-weight:400"> &middot; &#8986; ${Math.round(mins)}m</span>` : ''}
+          ${wos.length ? `<span class="muted" style="font-weight:400"> &middot; ${Math.round(mins)} min</span>` : ''}
         </div>
         <div class="s">${icon}</div>
       </div>`;
@@ -1084,7 +1130,7 @@ function mjCard(m){
       <div><input type="date" id="injDate" value="${todayStr()}"></div>
       <div><input type="text" inputmode="decimal" id="injMg" value="${dose ? dose.mg : ''}" placeholder="mg"></div>
     </div>
-    <button class="primary" onclick="logShot()">&#128137; Log shot</button>
+    <button class="primary" onclick="logShot()">Log shot</button>
     ${since != null
       ? `<p class="${since > 8 ? 'warnline' : 'muted'}" style="font-size:12px;margin:8px 0 0">Last shot ${fmtD(m.mj.lastShot)} (${since === 0 ? 'today' : since === 1 ? 'yesterday' : since + ' days ago'}).</p>`
       : '<p class="muted" style="margin:8px 0 0">No shots logged yet. Until you log one, the count assumes one a week since the start date.</p>'}
@@ -1109,7 +1155,7 @@ function journalCard(){
     ${Object.keys(counts).length ? `<div class="chips" id="jtags">${TAGS.filter(t => counts[t]).map(t =>
       `<button class="chip sm ${jTag===t?'sel':''}" data-t="${t}" onclick="setJTag('${t}')">${t} ${counts[t]}</button>`).join('')}</div>` : ''}
     <div id="journal">${weeks.map((w,i) => `
-      <details ${i===0?'open':''} style="border-bottom:1px solid #eef1f4">
+      <details ${i===0?'open':''} style="border-bottom:1px solid var(--line)">
         <summary style="padding:9px 0;font-weight:700;font-size:13px;cursor:pointer;list-style:none">
           Week ${w} <span class="muted" style="font-weight:400">&middot; ${byWeek[w].length} entr${byWeek[w].length>1?'ies':'y'}</span>
         </summary>
@@ -1274,6 +1320,10 @@ function renderStats(){
     const s = document.getElementById('jSearch'); if(s) s.value = jQ;
     applyJournal();
   }
+  // Chart colours come from the theme, so lines and labels read in light and dark.
+  const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const chartInk = cssv('--chart-ink');
+  if(window.Chart){ Chart.defaults.color = cssv('--muted'); Chart.defaults.borderColor = cssv('--line'); }
   if(m.weights.length && window.Chart){
     let idx = m.weights.map((r,i) => i);
     if(wRange){
@@ -1291,13 +1341,13 @@ function renderStats(){
           { label:'Weigh-in', data: pts.map(r => r.body_weight), borderColor:'rgba(46,134,193,.45)',
             backgroundColor:'#2E86C1', borderWidth:1, tension:.2, fill:false,
             pointRadius: pts.length > 45 ? 1.5 : 3 },
-          { label:'7-day avg', data: idx.map(i => tr.avg7[i]), borderColor:'#16324F', borderWidth:2.5,
+          { label:'7-day avg', data: idx.map(i => tr.avg7[i]), borderColor:chartInk, borderWidth:2.5,
             pointRadius:0, tension:.3, fill:false },
-          { label:'Goal ' + goals.target_kg, data: pts.map(() => goals.target_kg), borderColor:'#1e8449',
+          { label:'Goal ' + goals.target_kg, data: pts.map(() => goals.target_kg), borderColor:cssv('--good'),
             borderDash:[6,5], pointRadius:0, fill:false },
           // The start line only on "All", where the whole journey is in view.
           ...(wRange === 0 && goals.mj_start_kg ? [{ label:'Start ' + goals.mj_start_kg, data: pts.map(() => goals.mj_start_kg),
-            borderColor:'#8a97a4', borderDash:[3,4], pointRadius:0, fill:false }] : [])
+            borderColor:cssv('--muted'), borderDash:[3,4], pointRadius:0, fill:false }] : [])
         ]},
       options:{ plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } } },
         scales:{ x:{ ticks:{ maxTicksLimit:6, autoSkip:true, maxRotation:0 } },
@@ -1326,7 +1376,7 @@ function renderStats(){
       type:'line',
       data:{ datasets: sw.lifts.map(l => ({ label: SW_LABELS[l.type], data: l.data, borderColor: SW_COLORS[l.type],
           backgroundColor: SW_COLORS[l.type], borderWidth:2, pointRadius:2.5, tension:.2, fill:false }))
-        .concat([{ label:'Body weight', data: sw.body, borderColor:'#16324F', borderWidth:2.5, borderDash:[6,4],
+        .concat([{ label:'Body weight', data: sw.body, borderColor:chartInk, borderWidth:2.5, borderDash:[6,4],
           pointRadius:0, tension:.3, fill:false }]) },
       options:{ plugins:{ legend:{ display:true, position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } },
           tooltip:{ callbacks:{ title: items => items.length ? fmtD(isoOf(items[0].parsed.x)) : '' } } },
@@ -1338,36 +1388,14 @@ function renderStats(){
 }
 
 /* ---------- Setup ---------- */
+// Advanced settings stay open once opened, until the app is reloaded.
+let advOpen = false;
 function renderSettings(){
   const el = document.getElementById('view-settings');
   const g = goals;
   const ds = [...(g.doses || [])].sort((a,b) => a.from < b.from ? -1 : 1);
   const latestWo = workouts.reduce((a,w) => w.date > a ? w.date : a, '');
   el.innerHTML = `
-    ${cfg ? `<div class="card">
-      <h2>Account</h2>
-      ${session ? `<p style="margin:0 0 4px">Signed in as <b>${esc(session.email || 'owner')}</b>.</p>
-        <p class="muted" style="margin:0">Once the database is locked, only this account can read or change your log.</p>
-        <button class="link" onclick="signOut()">Sign out</button>`
-      : `<p class="muted" style="margin:0">Sign in with the email and password set up in Supabase. Once per device.</p>
-        <label class="fld">Email</label>
-        <input type="text" id="liEmail" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false">
-        <label class="fld">Password</label>
-        <input type="password" id="liPw" autocomplete="current-password">
-        <button class="primary" onclick="signIn()">Sign in</button>`}
-      ${lastSyncErr ? `<p style="color:var(--bad);font-size:13px;margin:10px 0 0"><b>Last sync problem:</b> ${esc(explainErr(lastSyncErr))}</p>` : ''}
-    </div>` : ''}
-    <div class="card">
-      <h2>Cloud sync (Supabase)</h2>
-      <p class="muted">Paste your Supabase project URL and anon key. Same values on phone and desktop = one shared dataset.</p>
-      <label class="fld">Project URL</label>
-      <input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co" value="${cfg ? esc(cfg.url) : ''}">
-      <label class="fld">Anon public key</label>
-      <input type="password" id="sbKey" placeholder="eyJ..." value="${cfg ? esc(cfg.key) : ''}">
-      <button class="primary" onclick="saveCfg()">Save &amp; sync</button>
-      ${lastSyncErr && !cfg ? `<p style="color:var(--bad);font-size:13px;margin:10px 0 0"><b>Last sync problem:</b> ${esc(explainErr(lastSyncErr))}</p>` : ''}
-      ${cfg ? '<button class="link" onclick="clearCfg()">Disconnect</button>' : ''}
-    </div>
     <div class="card">
       <h2>Goals</h2>
       <div class="row2">
@@ -1402,6 +1430,40 @@ function renderSettings(){
       <p class="muted" style="margin:6px 0 0">Max heart rate sets the Hard / Moderate / Easy split (75% and 60% of max). 166 is the age-based estimate; use your own figure if you know it.</p>
       <button class="primary" onclick="saveGoals()">Save goals</button>
     </div>
+    ${cfg ? `<div class="card">
+      <h2>Account</h2>
+      ${session ? `<p style="margin:0 0 4px">Signed in as <b>${esc(session.email || 'owner')}</b>.</p>
+        <p class="muted" style="margin:0">Once the database is locked, only this account can read or change your log.</p>
+        <button class="link" onclick="signOut()">Sign out</button>`
+      : `<p class="muted" style="margin:0">Sign in with the email and password set up in Supabase. Once per device.</p>
+        <label class="fld">Email</label>
+        <input type="text" id="liEmail" autocomplete="username" inputmode="email" autocapitalize="off" spellcheck="false">
+        <label class="fld">Password</label>
+        <input type="password" id="liPw" autocomplete="current-password">
+        <button class="primary" onclick="signIn()">Sign in</button>`}
+      ${lastSyncErr ? `<p style="color:var(--bad);font-size:13px;margin:10px 0 0"><b>Last sync problem:</b> ${esc(explainErr(lastSyncErr))}</p>` : ''}
+    </div>` : ''}
+    <div class="card">
+      <h2>Data</h2>
+      <button class="primary alt" onclick="exportCSV()">Export CSV (for Excel)</button>
+      <button class="primary alt" onclick="downloadBackup()">Download full backup (JSON)</button>
+      <button class="primary alt" onclick="extendNow()">Extend programme by 12 weeks</button>
+      ${cfg && !repsCol ? '<p class="warnline" style="font-size:13px">Reps stay on this device until the cloud has a top_reps column. Run the v11 upgrade (supabase/v11-upgrade.sql) once in the Supabase SQL editor.</p>' : ''}
+      <p class="muted" style="margin-bottom:0">${rows.length} days &middot; ${dirty.size} unsynced change${dirty.size===1?'':'s'} &middot; ${workouts.length} Watch workouts &middot; app version ${APP_VERSION}</p>
+    </div>
+    <details class="adv" ${!cfg || lastSyncErr || advOpen ? 'open' : ''} ontoggle="advOpen = this.open">
+      <summary>Advanced settings</summary>
+    <div class="card">
+      <h2>Cloud sync (Supabase)</h2>
+      <p class="muted">Paste your Supabase project URL and anon key. Same values on phone and desktop = one shared dataset.</p>
+      <label class="fld">Project URL</label>
+      <input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co" value="${cfg ? esc(cfg.url) : ''}">
+      <label class="fld">Anon public key</label>
+      <input type="password" id="sbKey" placeholder="eyJ..." value="${cfg ? esc(cfg.key) : ''}">
+      <button class="primary" onclick="saveCfg()">Save &amp; sync</button>
+      ${lastSyncErr && !cfg ? `<p style="color:var(--bad);font-size:13px;margin:10px 0 0"><b>Last sync problem:</b> ${esc(explainErr(lastSyncErr))}</p>` : ''}
+      ${cfg ? '<button class="link" onclick="clearCfg()">Disconnect</button>' : ''}
+    </div>
     <div class="card">
       <h2>Apple Watch feed</h2>
       <p class="muted" style="margin:0 0 6px">Health Auto Export on the iPhone sends each Watch workout here. Set up once: Automations &gt; new &gt; REST API.</p>
@@ -1426,14 +1488,7 @@ function renderSettings(){
       <button type="button" class="big" style="width:100%" onclick="openChatGPTCoach()">Connect to ChatGPT coach</button>
       <p class="muted" style="margin-bottom:0">Connect once. Your coach can then read your synced cloud records.</p>
     </div>
-    <div class="card">
-      <h2>Data</h2>
-      <button class="primary" style="background:#39566f" onclick="exportCSV()">Export CSV (for Excel)</button>
-      <button class="primary" style="background:#39566f" onclick="downloadBackup()">Download full backup (JSON)</button>
-      <button class="primary" style="background:#39566f" onclick="extendNow()">Extend programme by 12 weeks</button>
-      ${cfg && !repsCol ? '<p class="warnline" style="font-size:13px">Reps stay on this device until the cloud has a top_reps column. Run the v11 upgrade (supabase/v11-upgrade.sql) once in the Supabase SQL editor.</p>' : ''}
-      <p class="muted" style="margin-bottom:0">${rows.length} days &middot; ${dirty.size} unsynced change${dirty.size===1?'':'s'} &middot; ${workouts.length} Watch workouts &middot; app version ${APP_VERSION}</p>
-    </div>`;
+    </details>`;
 }
 function saveCfg(){
   const url = document.getElementById('sbUrl').value.trim();
@@ -1683,6 +1738,8 @@ extendScheduleIfNeeded();
 render();
 maybeWelcome();
 if(cfg) sync();
+// Redraw when the phone switches between light and dark, so charts pick up the new colours.
+try{ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render(true)); }catch(e){}
 // A home-screen app can stay "open" for weeks, so top the schedule up and re-check
 // the date every time it returns to the foreground, not only on a cold start.
 let lastSeenDay = todayStr();
